@@ -233,11 +233,12 @@ function Match:finishRound(winner)
       end
     end
     self.champion = bestId
-    self.phase = "finished"
+    self.phase = "match_end"
+    self.endTime = C.ROUND_BREAK
     self.prepTime = 0
     self.events[#self.events + 1] = {
       type = "match_end", champion = bestId, scores = self.scores,
-      teamMode = self.teamMode, teamWins = self.teamWins,
+      teamMode = self.teamMode, teamWins = self.teamWins, mode = self.mode,
     }
   else
     self:startRound(self.round + 1, true)
@@ -360,6 +361,9 @@ function Match:update(dt)
     if self.prepTime <= 0 then
       self:beginRound()
     end
+  elseif self.phase == "match_end" then
+    self.endTime = math.max(0, (self.endTime or 0) - dt)
+    if self.endTime <= 0 then return "finished" end
   elseif self.phase == "finished" then
     return "finished"
   end
@@ -368,6 +372,7 @@ end
 
 function Match:timer()
   if self.phase == "prep" then return self.prepTime end
+  if self.phase == "match_end" then return self.endTime or 0 end
   return 0
 end
 
@@ -452,6 +457,7 @@ function Match:buildSnapshot()
     timer = r2(self:timer()),
     champion = self.champion,
     roundWinner = self.roundWinner,
+    mode = self.mode,
     teamMode = self.teamMode,
     teamKills = self.teamKills,
     teamWins = self.teamWins,

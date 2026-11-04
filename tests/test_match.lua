@@ -25,10 +25,13 @@ cases[#cases + 1] = {
       end
     end
 
-    assert(m.phase == "finished", "match should finish after round 5")
+    assert(m.phase == "match_end", "match should hold the war result after round 5")
+    assert(m.endTime > 2.5, "war result should hold for 3 seconds")
     assert(m.champion ~= nil, "champion missing")
     assert(m:buildSnapshot().champion ~= nil)
-    assert(m:update(0.01) == "finished", "finished match should return finished")
+    m:update(2.8)
+    assert(m.phase == "match_end", "war result ended too early")
+    assert(m:update(0.3) == "finished", "finished match should return finished")
   end,
 }
 
