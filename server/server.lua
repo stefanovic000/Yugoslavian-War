@@ -299,6 +299,7 @@ function Server:roomState(room)
       players[#players + 1] = {
         id = id, name = c.name or ("Pilot" .. id), host = (id == room.hostId),
         bot = false, planeType = Aircraft.normalize(c.aircraft),
+        ready = room.ready[id] == true,
         team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
       }
     end
@@ -310,6 +311,11 @@ function Server:roomState(room)
       spectators[#spectators + 1] = { id = id, name = c.name or ("Pilot" .. id) }
     end
   end
+  local readyCount = 0
+  for _, id in ipairs(room.players) do
+    if room.ready[id] then readyCount = readyCount + 1 end
+  end
+  local allReady = #room.players > 0 and readyCount == #room.players
   return {
     type = "room",
     room = {
@@ -319,6 +325,8 @@ function Server:roomState(room)
       status = room.status,
       players = players,
       spectators = spectators,
+      readyCount = readyCount,
+      allReady = allReady,
       max = C.MAX_PLAYERS,
       bots = room.bots or 0,
       botTeams = room.botTeams or {},
@@ -429,6 +437,7 @@ end
 function Server:cancelMatch(room, reason)
   room.match = nil
   room.status = "lobby"
+  for _, id in ipairs(room.players) do room.ready[id] = false end
   for _, id in ipairs(room.spectators) do
     local c = self.clients[id]
     if c then
@@ -471,6 +480,7 @@ function Server:createRoom(client, msg)
     players = { client.id },
     spectators = {},
     playerTeams = { [client.id] = 1 },
+    ready = {},
     bots = 0,
     mode = "ffa",
     botDifficulty = "veteran",
@@ -515,6 +525,7 @@ function Server:joinRoom(client, msg)
     client.spectator = true
   else
     room.players[#room.players + 1] = client.id
+    room.ready[client.id] = false
     client.spectator = false
     if room.mode == "2v2" then
       local c1, c2 = 0, 0
@@ -555,6 +566,7 @@ function Server:leaveRoom(client, silent)
   client.room = nil
   client.spectator = false
   if not room then return end
+  room.ready[client.id] = nil
 
   local wasPlayer = false
   for i, id in ipairs(room.players) do
@@ -636,6 +648,7 @@ function Server:kick(client, msg)
   self:send(target, { type = "kicked", room = room.name, reason = "Kicked by the host." })
   target.room = nil
   target.spectator = false
+  room.ready[target.id] = nil
 
   local wasPlayer = false
   for i, id in ipairs(room.players) do
@@ -707,6 +720,41 @@ function Server.handlers.leave(self, client)
   self:leaveRoom(client, false)
 end
 
+function Server:roomReady(room)
+  if not room or #room.players == 0 then return false end
+  for _, id in ipairs(room.players) do
+    if not room.ready[id] then return false end
+  end
+  return true
+end
+
+function Server.handlers.ready(self, client)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.status ~= "lobby" then return end
+  local isPlayer = false
+  for _, id in ipairs(room.players) do
+    if id == client.id then isPlayer = true; break end
+  end
+  if not isPlayer then return end
+  room.ready[client.id] = not room.ready[client.id]
+  self:broadcastRoom(room)
+end
+
+function Server.handlers.set_aircraft(self, client, msg)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.status ~= "lobby" then return end
+  local isPlayer = false
+  for _, id in ipairs(room.players) do
+    if id == client.id then isPlayer = true; break end
+  end
+  if not isPlayer then return end
+  client.aircraft = Aircraft.normalize(msg.aircraft)
+  room.ready[client.id] = false
+  self:broadcastRoom(room)
+end
+
 function Server.handlers.start(self, client)
   if not client.hello then return end
   local room = client.room and self.rooms[client.room]
@@ -719,6 +767,10 @@ function Server.handlers.start(self, client)
   local total = #room.players + (room.bots or 0)
   if room.mode == "1v1" and total ~= 2 then
     self:send(client, { type = "error", message = "1v1 needs exactly 2 pilots or bots." })
+    return
+  end
+  if not self:roomReady(room) then
+    self:send(client, { type = "error", message = "Every pilot must be ready." })
     return
   end
   if total < C.MIN_PLAYERS then
@@ -741,6 +793,7 @@ function Server.handlers.room_settings(self, client, msg)
   room.mode = mode
   room.bots = bots
   room.botDifficulty = difficulty
+  for _, id in ipairs(room.players) do room.ready[id] = false end
   local teamIndex = 0
   for _, id in ipairs(room.players) do
     if mode == "2v2" then
@@ -772,6 +825,7 @@ function Server:assignRoomMember(room, targetId, role, team)
   if team == 1 or team == 2 then
     room.playerTeams[targetId] = team
   end
+  room.ready[targetId] = false
 
   if role == "spectator" and isPlayer then
     if targetId == room.hostId then return false end
@@ -972,4 +1026,5 @@ function Server:close()
 end
 
 return Server
+
 

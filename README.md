@@ -1,4 +1,4 @@
-﻿# Yugoslavian War
+# Yugoslavian War
 
 **A lightweight WW2 side-view dogfight game for 2â€“4 pilots, with a solo test flight, a dedicated Ubuntu server and pixel-art aircraft drawn entirely in code.**
 
@@ -19,7 +19,7 @@ procedurally. There are no large art packs and no runtime downloads.
 ## Features
 
 - **Solo test flight** against a demo AI that manages throttle, energy and stall recovery.
-- **Online rooms** for 2â€“4 pilots: create, join, spectate and start without a ready-up step.
+- **Online rooms** for 2â€“4 pilots: create, join, spectate, pick an aircraft and ready up before the host starts.
 - **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 6 everyone returns to the same lobby with teams and settings preserved.
 - **Six-round matches** switch sides after round 3, with a small in-match notification.
 - **Bot difficulty** (Rookie / Veteran / Ace) and stronger ground/wall avoidance.
@@ -38,7 +38,7 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Energy flight model**: thrust along the nose, gravity, lift, drag, turn drag and engine braking.
 - **Modular damage**: engine, wing, tail and guns each have their own health and affect flight.
 - **Parachute ammo crates**, swept hitboxes and a fixed 60 Hz simulation.
-- **Modular aircraft registry**: IK-3 and Bf 109E share one flight/render pipeline; pick your aircraft in Settings.
+- **Modular aircraft registry**: IK-3 and Bf 109E share one flight/render pipeline; pick your aircraft with rendered cards in the room lobby.
 - **Host room settings** for FFA/2v2 and 0â€“3 bots, plus a separate Settings button.
 - **Settings**: callsign, server address/port, fullscreen, window resolution, FPS counter, screen shake, rebindable flight controls and master/effects volume sliders.
 - **Improved spectator camera**: follows the leader and switches targets with `[` and `]`.
@@ -102,7 +102,7 @@ copy of the game still shows localhost.
 
 1. Open **MULTIPLAYER**.
 2. Create a room, or select an open room and press **ENTER**.
-3. The host presses **START** when 2â€“4 pilots are in.
+3. Every pilot presses **READY**; the host can then press **START**.
 4. Started rooms remain listed; joining one puts you in as a spectator.
 5. After round 6, players return to the same lobby; the host can start the next match.
 
