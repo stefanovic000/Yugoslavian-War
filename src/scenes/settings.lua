@@ -180,6 +180,7 @@ function SettingsScene:update(dt)
     if UI.hit(mx, my, 352, 108, 220, 24) then self.hover = "fullscreen" end
     if UI.hit(mx, my, 352, 144, 220, 24) then self.hover = "fps" end
     if UI.hit(mx, my, 352, 180, 220, 24) then self.hover = "shake" end
+    if UI.hit(mx, my, 352, 216, 220, 24) then self.hover = "resolution" end
   elseif self.tab == 2 then
     for i = 1, #ACTIONS do
       if UI.hit(mx, my, 86, 104 + (i - 1) * 25, 420, 22) then self.hover = "bind" .. i end
@@ -219,6 +220,17 @@ function SettingsScene:drawToggle(x, y, label, value, hovered)
   love.graphics.rectangle("fill", x, y + 17, 220, 1)
 end
 
+function SettingsScene:drawResolution(x, y, hovered)
+  UI.set(hovered and UI.C.cream or UI.C.cream2)
+  love.graphics.setFont(UI.font(11))
+  love.graphics.print("RESOLUTION", x, y)
+  love.graphics.setFont(UI.font(11, true))
+  UI.set(UI.C.orange)
+  love.graphics.printf((Settings.data.resolution or "1280x720"):gsub("x", " x "), x, y, 220, "right")
+  UI.set(UI.C.ink3)
+  love.graphics.rectangle("fill", x, y + 17, 220, 1)
+end
+
 function SettingsScene:drawSlider(x, y, label, key)
   UI.small(label, x, y - 18, UI.C.cream2, "left")
   UI.set(UI.C.ink3)
@@ -242,10 +254,9 @@ function SettingsScene:drawGame()
   self:drawToggle(352, 108, "FULLSCREEN", Settings.data.fullscreen == true, self.hover == "fullscreen")
   self:drawToggle(352, 144, "SHOW FPS", Settings.data.showFps == true, self.hover == "fps")
   self:drawToggle(352, 180, "SCREEN SHAKE", Settings.data.screenShake ~= false, self.hover == "shake")
+  self:drawResolution(352, 216, self.hover == "resolution")
 
   UI.small("Ubuntu server address or IP. TCP port must match the server.", 86, 250, UI.C.cream2, "left")
-  UI.small("SETTINGS SAVE TO", 352, 214, UI.C.cream2, "left")
-  UI.small("settings.json", 352, 226, UI.C.cream, "left")
 end
 
 function SettingsScene:drawControls()
@@ -337,6 +348,14 @@ function SettingsScene:mousepressed(x, y)
       Settings.save()
     elseif UI.hit(mx, my, 352, 180, 220, 24) then
       Settings.data.screenShake = not Settings.data.screenShake
+      Settings.save()
+    elseif UI.hit(mx, my, 352, 216, 220, 24) then
+      local list = Settings.RESOLUTIONS
+      local index = Settings.resolutionIndex(Settings.data.resolution)
+      local r = list[(index % #list) + 1]
+      Settings.data.resolution = tostring(r.w) .. "x" .. tostring(r.h)
+      Settings.apply()
+      View.resize(love.graphics.getDimensions())
       Settings.save()
     end
   elseif self.tab == 2 then

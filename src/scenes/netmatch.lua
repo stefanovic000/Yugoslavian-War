@@ -1018,7 +1018,7 @@ function NetMatch:drawHud()
   if self.localPlane and not self.spectator and self.localHidden then
     UI.set(UI.C.teal)
     love.graphics.setFont(UI.font(8, true))
-    love.graphics.printf("CLOUD COVER", 0, 178, 640, "center")
+    love.graphics.printf("CLOUD COVER", 0, 168, 640, "center")
   end
 
   if self.hintTimer > 0 and self.localPlane and not self.spectator
@@ -1037,16 +1037,16 @@ function NetMatch:drawHud()
   if self.noticeTimer > 0 and self.notice then
     UI.set(UI.C.cream)
     love.graphics.setFont(UI.font(9, true))
-    love.graphics.printf(self.notice, 0, 198, 640, "center")
+    love.graphics.printf(self.notice, 0, 184, 640, "center")
   end
 
   if self.bannerTimer > 0 and self.banner then
     local alpha = math.min(1, self.bannerTimer * 2)
     love.graphics.setColor(0.02, 0.04, 0.04, 0.6 * alpha)
-    love.graphics.rectangle("fill", 0, 220, 640, 34)
+    love.graphics.rectangle("fill", 0, 196, 640, 34)
     UI.set(self.champion and UI.C.orange or UI.C.cream, alpha)
     love.graphics.setFont(UI.font(14, true))
-    love.graphics.printf(self.banner, 0, 228, 640, "center")
+    love.graphics.printf(self.banner, 0, 204, 640, "center")
   end
 
   if self.phase == "prep" then

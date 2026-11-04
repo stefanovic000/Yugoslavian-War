@@ -17,6 +17,7 @@ local DEFAULTS = {
   screenShake = true,
   masterVolume = 1.0,
   effectsVolume = 1.0,
+  resolution = "1280x720",
   bindings = {
     throttleUp = "w",
     throttleDown = "s",
@@ -29,6 +30,27 @@ local DEFAULTS = {
 local BIND_ACTIONS = {
   "throttleUp", "throttleDown", "pitchLeft", "pitchRight", "fire",
 }
+
+local RESOLUTIONS = {
+  { w = 960, h = 540 },
+  { w = 1280, h = 720 },
+  { w = 1600, h = 900 },
+  { w = 1920, h = 1080 },
+  { w = 2560, h = 1440 },
+}
+Settings.RESOLUTIONS = RESOLUTIONS
+
+local function resolutionLabel(r)
+  return tostring(r.w) .. "x" .. tostring(r.h)
+end
+
+local function resolutionIndex(value)
+  for i, r in ipairs(RESOLUTIONS) do
+    if resolutionLabel(r) == value then return i end
+  end
+  return 2
+end
+Settings.resolutionIndex = resolutionIndex
 
 local function sanitizeKey(key)
   if type(key) ~= "string" then return nil end
@@ -69,6 +91,7 @@ local function sanitize(data)
   out.hostCustom = data.hostCustom == true
   out.masterVolume = math.max(0, math.min(1, tonumber(data.masterVolume) or DEFAULTS.masterVolume))
   out.effectsVolume = math.max(0, math.min(1, tonumber(data.effectsVolume) or DEFAULTS.effectsVolume))
+  out.resolution = resolutionLabel(RESOLUTIONS[resolutionIndex(data.resolution)])
   return out
 end
 
@@ -99,9 +122,15 @@ end
 
 function Settings.apply()
   local full = Settings.data.fullscreen == true
-  local current = love.window.getFullscreen()
-  if current ~= full then
-    pcall(love.window.setFullscreen, full, "desktop")
+  if full then
+    pcall(love.window.setFullscreen, true, "desktop")
+  else
+    pcall(love.window.setFullscreen, false)
+    local r = RESOLUTIONS[resolutionIndex(Settings.data.resolution)]
+    pcall(love.window.setMode, r.w, r.h, {
+      resizable = true, vsync = 1, minwidth = 960, minheight = 540,
+      highdpi = false,
+    })
   end
 end
 
