@@ -223,6 +223,59 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
+  name = "network aim follows the client's rendered nose",
+  fn = function()
+    local sim = newSim(27)
+    local p = sim:addPlane({ id = 1, x = 320, y = 180, angle = 0, speed = 120 })
+    assert(sim:tryFire(p, { fire = true, aim = 0.2 }))
+    local b = sim.bullets[#sim.bullets]
+    local angle = math.atan2(b.vy, b.vx)
+    assert(math.abs(angle - 0.2) < 0.02, "network aim was ignored")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "relative sweep agrees with fine substep sampling",
+  fn = function()
+    local rng = require("shared.rng").new(77)
+    local sim = newSim(26)
+    local target = sim:addPlane({ id = 1, x = 320, y = 180, angle = 0, invuln = 0 })
+    local mismatches = 0
+    for _ = 1, 1000 do
+      local x0 = 320 + rng:range(-80, 20)
+      local y0 = 180 + rng:range(-30, 30)
+      local x1 = 320 + rng:range(-20, 80)
+      local y1 = 180 + rng:range(-30, 30)
+      local tx0 = 320 + rng:range(-20, 20)
+      local ty0 = 180 + rng:range(-20, 20)
+      local tx1 = 320 + rng:range(-20, 20)
+      local ty1 = 180 + rng:range(-20, 20)
+      local bullet = { owner = 2, px = x0, py = y0, x = x1, y = y1 }
+      target.x, target.y = tx1, ty1
+      local swept = Combat.bulletHitsMovingPlane(bullet, target, tx0, ty0, 0, sim.w, sim.h)
+
+      local sampled = false
+      for i = 0, 200 do
+        local k = i / 200
+        local bx = x0 + (x1 - x0) * k
+        local by = y0 + (y1 - y0) * k
+        local px = bx - (tx0 + (tx1 - tx0) * k)
+        local py = by - (ty0 + (ty1 - ty0) * k)
+        local lx, ly = Combat.toLocal(target, px, py)
+        for _, shape in ipairs(Combat.SHAPES) do
+          local dx, dy = lx - shape.x, ly - shape.y
+          if dx * dx + dy * dy <= (shape.r + (bullet.radius or 0)) ^ 2 then
+            sampled = true
+          end
+        end
+      end
+      if (swept ~= nil) ~= sampled then mismatches = mismatches + 1 end
+    end
+    assert(mismatches == 0, "sweep/substep disagreements: " .. mismatches)
+  end,
+}
+
+cases[#cases + 1] = {
   name = "lag compensation checks the shooter's delayed target pose",
   fn = function()
     local sim = newSim(25)

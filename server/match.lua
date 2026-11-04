@@ -211,6 +211,7 @@ function Match:queueInput(id, msg)
     seq = math.floor(seq),
     throttle = math.max(0, math.min(1, tonumber(msg.throttle) or 0.7)),
     pitch = math.max(-1, math.min(1, tonumber(msg.pitch) or 0)),
+    aim = tonumber(msg.aim),
     fire = msg.fire == true,
   }
   st.rtt = math.max(0, math.min(0.25, (tonumber(msg.rtt) or 0) / 1000))
@@ -344,7 +345,9 @@ function Match:stepRound(dt)
   for _, id in ipairs(self.players) do
     if not self.bots[id] then
       local rtt = self.inputs[id].rtt or 0.08
-      self.sim.lagByOwner[id] = math.max(0, math.min(0.16, rtt * 0.5 + 0.03))
+      -- Remote aircraft are smoothed over roughly 1/15 s on the client, on
+      -- top of half the round-trip time. Compensate for both.
+      self.sim.lagByOwner[id] = math.max(0, math.min(0.24, rtt * 0.5 + 0.075))
     end
   end
 

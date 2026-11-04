@@ -81,9 +81,13 @@ function Sim:getPlane(id)
   return self.planes[id]
 end
 
-function Sim:spawnBullet(plane)
+function Sim:spawnBullet(plane, aimAngle)
   local spread = (self.rng:next() - 0.5) * 2 * C.BULLET.spread
   local angle = plane.angle + spread
+  if aimAngle then
+    local diff = M.angleDiff(plane.angle, aimAngle)
+    if math.abs(diff) <= 0.35 then angle = aimAngle + spread end
+  end
   local fx, fy = math.cos(angle), math.sin(angle)
   local nx, ny = Combat.toWorld(plane, 18, 0)
   local x = nx
@@ -126,7 +130,7 @@ function Sim:tryFire(plane, input)
       x = plane.x, y = plane.y,
     }
   end
-  self:spawnBullet(plane)
+  self:spawnBullet(plane, input.aim)
   return true
 end
 
@@ -219,9 +223,13 @@ function Sim:step(inputs, dt)
           if not part and lag > 0.02 then
             -- Match the shooter's view: remote aircraft are rendered slightly
             -- behind the authoritative position by interpolation and RTT.
-            local pose = self:poseAt(plane, self.time - lag)
-            part = Combat.bulletHitsPlaneAt(b, plane, pose.x, pose.y, pose.a,
-              self.w, self.h)
+            -- Check a small window too, because render smoothing is not exact.
+            for _, offset in ipairs({ 0, -0.04, 0.04 }) do
+              local pose = self:poseAt(plane, self.time - lag + offset)
+              part = Combat.bulletHitsPlaneAt(b, plane, pose.x, pose.y, pose.a,
+                self.w, self.h)
+              if part then break end
+            end
           end
           if part then
             local applied = Flight.applyDamage(plane, part, b.damage)

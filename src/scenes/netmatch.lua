@@ -688,10 +688,11 @@ function NetMatch:fixedUpdate(dt)
       self.history[#self.history + 1] = { seq = self.seq, input = packaged }
       if #self.history > 150 then table.remove(self.history, 1) end
       Flight.step(self.localPlane, packaged, dt)
+      packaged.aim = self.localPlane.angle
       self:updateLocalBullets(dt, packaged)
       self.client:send({
         type = "input", seq = packaged.seq, throttle = packaged.throttle,
-        pitch = packaged.pitch, fire = packaged.fire,
+        pitch = packaged.pitch, fire = packaged.fire, aim = packaged.aim,
         rtt = math.floor((self.client.rtt or 0.08) * 1000),
       })
     end
