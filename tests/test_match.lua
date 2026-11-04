@@ -243,6 +243,7 @@ cases[#cases + 1] = {
       { id = 1, name = "A" }, { id = 2, name = "B" },
     }, 46, { mode = "demo" })
     assert(m.demo and not m.teamMode)
+    assert(#m.sim.clouds.list == C.CLOUDS.demoCount, "demo should have extra clouds")
     m:beginRound()
     local victim = m.sim:getPlane(2)
     victim.alive = false

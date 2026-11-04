@@ -88,6 +88,7 @@ local C = {
 
   CLOUDS = {
     count = 8,
+    demoCount = 14,
     minRadius = 22,
     maxRadius = 42,
     alpha = 0.88,

@@ -117,7 +117,8 @@ function NetMatch:applyStart(msg)
   self.seed = msg.seed
   self.localBullets = {}
   self.localFireTimer = 0
-  self.clouds = Clouds.new(self.seed)
+  self.cloudCount = msg.cloudCount or C.CLOUDS.count
+  self.clouds = Clouds.new(self.seed, self.cloudCount or C.CLOUDS.count)
   Clouds.avoidPoints(self.clouds, C.SPAWNS, 80)
   Clouds.avoidPoints(self.clouds, C.SPAWNS3, 80)
   self.farClouds = Clouds.new(self.seed + 7, 7, { cluster = false })

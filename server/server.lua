@@ -403,6 +403,7 @@ function Server:matchStart(room)
         type = "match_start",
         roomId = room.id,
         seed = room.match.seed,
+        cloudCount = room.match.cloudCount,
         players = players,
         spectator = false,
       })
@@ -415,6 +416,7 @@ function Server:matchStart(room)
         type = "match_start",
         roomId = room.id,
         seed = room.match.seed,
+        cloudCount = room.match.cloudCount,
         players = players,
         spectator = true,
       })
@@ -555,6 +557,7 @@ function Server:joinRoom(client, msg)
       type = "match_start",
       roomId = room.id,
       seed = room.match.seed,
+      cloudCount = room.match.cloudCount,
       players = self:playerInfo(room),
       spectator = spectator,
     })
@@ -1029,6 +1032,7 @@ function Server:close()
 end
 
 return Server
+
 
 
 

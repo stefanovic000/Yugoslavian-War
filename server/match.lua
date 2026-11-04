@@ -25,6 +25,7 @@ function Match.new(players, seed, opts)
   opts = opts or {}
   local demo = opts.mode == "demo"
   local teamMode = not demo and opts.mode == "2v2"
+  local cloudCount = opts.cloudCount or (demo and C.CLOUDS.demoCount or C.CLOUDS.count)
   local m = setmetatable({
     players = {},
     info = {},
@@ -34,6 +35,7 @@ function Match.new(players, seed, opts)
     bots = {},
     aiStates = {},
     demo = demo,
+    cloudCount = cloudCount,
     teamMode = teamMode,
     mode = opts.mode or "ffa",
     rounds = opts.rounds or C.ROUNDS,
@@ -41,7 +43,7 @@ function Match.new(players, seed, opts)
     sidesSwapped = false,
     teamKills = { [1] = 0, [2] = 0 },
     teamWins = { [1] = 0, [2] = 0 },
-    sim = Sim.new({ seed = seed, teamMode = teamMode }),
+    sim = Sim.new({ seed = seed, teamMode = teamMode, cloudCount = cloudCount }),
     seed = seed,
     round = 0,
     phase = "round",
