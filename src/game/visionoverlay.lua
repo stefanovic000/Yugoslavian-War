@@ -31,45 +31,54 @@ function VisionOverlay.draw(viewer, camera, clouds)
     pts[#pts + 1] = (world[i + 1] - camY) * scale
   end
 
+  -- Single union mask: general blind area and all cloud shadows. Everything is
+  -- written as a solid mask and composited once, so overlaps never darken.
   local previous = love.graphics.getCanvas()
   love.graphics.setCanvas(mask)
   love.graphics.clear(0, 0, 0, 0)
   love.graphics.setBlendMode("alpha")
-  love.graphics.setColor(0.012, 0.022, 0.030, 0.10)
+  love.graphics.setColor(1, 1, 1, 1)
   love.graphics.rectangle("fill", 0, 0, W, H)
   love.graphics.setBlendMode("replace")
   love.graphics.setColor(0, 0, 0, 0)
   love.graphics.polygon("fill", pts)
-  love.graphics.setBlendMode("alpha")
-  love.graphics.setCanvas(previous)
 
-  love.graphics.setColor(1, 1, 1, 1)
-  love.graphics.draw(mask, 0, 0, 0, 2, 2)
-
-  -- A short, capped shadow tail on the far side of every cloud. The union mask
-  -- only marks the outer boundary, so stacked/offscreen cones otherwise made it
-  -- look like only some clouds were blocking anything.
   if clouds then
-    local scaleScreen = C.WORLD.scale
+    love.graphics.setColor(1, 1, 1, 1)
     for _, cloud in ipairs(clouds.list) do
-      local dx, dy = cloud.x - viewer.x, cloud.y - viewer.y
-      local dist = math.sqrt(dx * dx + dy * dy)
-      if dist > 1 then
-        local ux, uy = dx / dist, dy / dist
-        local sx = cloud.x + ux * cloud.r * 0.45
-        local sy = cloud.y + uy * cloud.r * 0.45
-        for j = 1, 4 do
-          local back = cloud.r * (0.25 + j * 0.28)
-          local x = (sx + ux * back - camX) * scaleScreen
-          local y = (sy + uy * back - camY) * scaleScreen
-          love.graphics.setColor(0.008, 0.016, 0.024, 0.11 - j * 0.020)
-          love.graphics.ellipse("fill", x, y,
-            cloud.r * scaleScreen * (0.82 - j * 0.10),
-            cloud.r * scaleScreen * (0.48 - j * 0.06))
+      for _, puff in ipairs(cloud.puffs) do
+        local cx = cloud.x + puff.dx
+        local cy = cloud.y + puff.dy
+        local rx = puff.rx or puff.r
+        local ry = puff.ry or puff.r
+        local a = math.atan2(cy - viewer.y, cx - viewer.x)
+        local startA, endA = a - math.pi / 2, a + math.pi / 2
+        local poly = {}
+        local e1x, e1y, e2x, e2y
+        for i = 0, 8 do
+          local ang = startA + (endA - startA) * (i / 8)
+          local px = cx + math.cos(ang) * rx
+          local py = cy + math.sin(ang) * ry
+          if i == 0 then e1x, e1y = px, py end
+          if i == 8 then e2x, e2y = px, py end
+          poly[#poly + 1] = (px - camX) * scale
+          poly[#poly + 1] = (py - camY) * scale
         end
+        local a1 = math.atan2(e1y - viewer.y, e1x - viewer.x)
+        local a2 = math.atan2(e2y - viewer.y, e2x - viewer.x)
+        poly[#poly + 1] = (viewer.x + math.cos(a2) * 1800 - camX) * scale
+        poly[#poly + 1] = (viewer.y + math.sin(a2) * 1800 - camY) * scale
+        poly[#poly + 1] = (viewer.x + math.cos(a1) * 1800 - camX) * scale
+        poly[#poly + 1] = (viewer.y + math.sin(a1) * 1800 - camY) * scale
+        love.graphics.polygon("fill", poly)
       end
     end
   end
+
+  love.graphics.setBlendMode("alpha")
+  love.graphics.setCanvas(previous)
+  love.graphics.setColor(0.005, 0.010, 0.016, 0.09)
+  love.graphics.draw(mask, 0, 0, 0, 2, 2)
 end
 
 return VisionOverlay

@@ -45,6 +45,15 @@ function Vision.canSee(viewer, target, clouds)
   return Vision.lineOfSight(viewer, target, clouds)
 end
 
+-- Clouds themselves should not float in the unseen fog without a shadow.
+function Vision.cloudVisible(viewer, cloud, clouds)
+  if not viewer or not cloud then return true end
+  local dx, dy = cloud.x - viewer.x, cloud.y - viewer.y
+  local dist = math.sqrt(dx * dx + dy * dy)
+  local angle = math.atan2(dy, dx)
+  return dist <= Vision.rangeAt(viewer.angle, angle)
+end
+
 -- World-space outline of the awareness area, used by the subtle blind-area
 -- overlay. It follows the aircraft nose and stops at the first cloud puff in
 -- each direction, so cloud shadows are marked as unseen.

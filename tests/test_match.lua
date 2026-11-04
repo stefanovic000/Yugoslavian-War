@@ -118,4 +118,28 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "snapshots carry per-viewer visibility",
+  fn = function()
+    local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 23)
+    m.sim.clouds.list = {}
+    local a, b = m.sim:getPlane(1), m.sim:getPlane(2)
+    a.x, a.y, a.angle = 300, 250, 0
+    b.x, b.y, b.angle = 650, 250, math.pi
+    local snap = m:buildSnapshot()
+    local byId = {}
+    for _, p in ipairs(snap.planes) do byId[p.id] = p end
+    assert(#byId[1].seenBy >= 1 and #byId[2].seenBy >= 1,
+      "seenBy lists missing")
+    local function contains(list, id)
+      for _, v in ipairs(list) do if v == id then return true end end
+      return false
+    end
+    assert(contains(byId[1].seenBy, 1) and contains(byId[2].seenBy, 2),
+      "plane cannot see itself")
+    assert(contains(byId[1].seenBy, 2) and contains(byId[2].seenBy, 1),
+      "clear frontal view should be visible to both pilots")
+  end,
+}
+
 return cases

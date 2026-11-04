@@ -5,6 +5,7 @@ local C = require("shared.constants")
 local Flight = require("shared.flight")
 local Sim = require("shared.sim")
 local Clouds = require("shared.clouds")
+local Vision = require("shared.vision")
 
 local Match = {}
 Match.__index = Match
@@ -265,6 +266,14 @@ function Match:buildSnapshot()
   for _, id in ipairs(self.players) do
     local p = self.sim:getPlane(id)
     if p then
+      local seenBy = {}
+      for _, viewerId in ipairs(self.players) do
+        local viewer = self.sim:getPlane(viewerId)
+        if viewer and viewer.alive
+          and (viewer.id == p.id or Vision.canSee(viewer, p, self.sim.clouds)) then
+          seenBy[#seenBy + 1] = viewerId
+        end
+      end
       planes[#planes + 1] = {
         id = id,
         x = r2(p.x), y = r2(p.y),
@@ -276,6 +285,7 @@ function Match:buildSnapshot()
         hp = math.floor(p.hp),
         alive = p.alive,
         hidden = Clouds.pointInside(self.sim.clouds, p.x, p.y),
+        seenBy = seenBy,
         throttle = r2(p.throttle),
         ammo = p.ammo,
         parts = {

@@ -182,7 +182,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 43 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 44 unit tests (flight, hitboxes, clouds, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 
@@ -229,5 +229,5 @@ docs/                      screenshots and debugging guide
 
 ## Status
 
-Version **0.2.5**. The game is in active playtesting: flight feel, network
+Version **0.2.6**. The game is in active playtesting: flight feel, network
 visibility, respawns, gun heat and room lifecycle are the current focus.

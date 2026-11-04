@@ -358,6 +358,7 @@ function NetMatch:onSnapshot(msg)
       v = {
         x = sp.x, y = sp.y, angle = sp.a, hp = sp.hp,
         alive = sp.alive, hidden = sp.hidden == true, parts = sp.parts, ammo = sp.ammo,
+        seenBy = sp.seenBy,
       }
       self.visuals[sp.id] = v
     end
@@ -410,6 +411,7 @@ function NetMatch:updateVisuals(dt)
       v.hp = target.hp
       v.alive = target.alive
       v.hidden = target.hidden == true
+      v.seenBy = target.seenBy
       v.parts = target.parts
       v.ammo = target.ammo
     end
@@ -690,7 +692,14 @@ function NetMatch:drawWorld()
     if id ~= self.selfId and v.alive then
       local visible = true
       if not self.spectator and self.localPlane and self.localPlane.alive then
-        visible = Vision.canSee(self.localPlane, v, self.clouds)
+        if v.seenBy then
+          visible = false
+          for _, viewerId in ipairs(v.seenBy) do
+            if viewerId == self.selfId then visible = true; break end
+          end
+        else
+          visible = Vision.canSee(self.localPlane, v, self.clouds)
+        end
       end
       local reveal = (not visible) and (self.reveal[id] or 0) > 0
       if visible or reveal then
