@@ -1,4 +1,4 @@
-﻿-- multiplayer.lua
+-- multiplayer.lua
 -- Server browser + room lobby. The actual match scene is pushed when the
 -- server announces match_start.
 

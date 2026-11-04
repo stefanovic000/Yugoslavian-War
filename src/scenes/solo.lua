@@ -1,4 +1,4 @@
-﻿-- solo.lua
+-- solo.lua
 -- Test flight against a demo AI plane. This is a full simulation of the same
 -- shared flight/combat model used online: wrap-around arena, clouds, modular
 -- damage, parachute ammo and stalling.

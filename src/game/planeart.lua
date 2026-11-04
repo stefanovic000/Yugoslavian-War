@@ -1,4 +1,4 @@
-﻿-- Data-driven side-view aircraft art.
+-- Data-driven side-view aircraft art.
 --
 -- A plane definition selects an art id. Each art entry is a small part kit
 -- (fuselage, wing, tail, canopy, markings) instead of a branch in gameplay

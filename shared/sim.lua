@@ -1,4 +1,4 @@
-﻿-- Deterministic world simulation. The dedicated server owns it; solo play uses
+-- Deterministic world simulation. The dedicated server owns it; solo play uses
 -- the same code locally. Rendering and UI never mutate it directly.
 
 local C = require("shared.constants")

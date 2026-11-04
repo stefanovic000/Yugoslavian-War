@@ -1,4 +1,4 @@
-﻿-- netmatch.lua
+-- netmatch.lua
 -- Networked match view. Own plane is predicted locally and reconciled from
 -- snapshots; remote planes are smoothed toward the latest authoritative state.
 
