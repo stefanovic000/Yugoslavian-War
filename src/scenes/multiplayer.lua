@@ -220,14 +220,14 @@ function Multiplayer:update(dt)
       if UI.hit(mx, my, 270, 224, 100, 24) then self.hover = "roomClose" end
       return
     end
-    if UI.hit(mx, my, 36, 300, 84, 24) then self.hover = "leave" end
-    if UI.hit(mx, my, 128, 300, 84, 24) then self.hover = "ready" end
-    if UI.hit(mx, my, 220, 300, 90, 24) then self.hover = "start" end
-    if UI.hit(mx, my, 318, 300, 70, 24) then self.hover = "kick" end
-    if UI.hit(mx, my, 396, 300, 70, 24) then self.hover = "room" end
-    if UI.hit(mx, my, 474, 300, 100, 24) then self.hover = "settings" end
-    if UI.hit(mx, my, 40, 198, 250, 54) then self.hover = "air1" end
-    if UI.hit(mx, my, 310, 198, 250, 54) then self.hover = "air2" end
+    if UI.hit(mx, my, 36, 304, 84, 24) then self.hover = "leave" end
+    if UI.hit(mx, my, 128, 304, 84, 24) then self.hover = "ready" end
+    if UI.hit(mx, my, 220, 304, 90, 24) then self.hover = "start" end
+    if UI.hit(mx, my, 318, 304, 70, 24) then self.hover = "kick" end
+    if UI.hit(mx, my, 396, 304, 70, 24) then self.hover = "room" end
+    if UI.hit(mx, my, 474, 304, 100, 24) then self.hover = "settings" end
+    if UI.hit(mx, my, 40, 204, 250, 54) then self.hover = "air1" end
+    if UI.hit(mx, my, 310, 204, 250, 54) then self.hover = "air2" end
   else
     if UI.hit(mx, my, 140, 208, 140, 26) then self.hover = "retry" end
     if UI.hit(mx, my, 300, 208, 140, 26) then self.hover = "back" end
@@ -400,7 +400,7 @@ function Multiplayer:drawBrowser()
   UI.small("ENTER JOIN   /   C CREATE   /   ESC BACK", 36, 338, UI.C.cream2, "left", 560)
 end
 function Multiplayer:drawLobby()
-  UI.panel(20, 14, 600, 332)
+  UI.panel(20, 14, 600, 336)
   local room = self.roomState
   if not room then return end
   local me = self:myRoomPlayer()
@@ -515,14 +515,14 @@ function Multiplayer:drawLobby()
     love.graphics.pop()
   end
 
-  UI.small("AIRCRAFT", 40, 186, UI.C.orange, "left")
-  UI.small("CLICK A CARD OR USE LEFT / RIGHT", 40, 186, UI.C.cream2, "right", 540)
+  UI.small("AIRCRAFT", 40, 192, UI.C.orange, "left")
+  UI.small("CLICK A CARD OR USE LEFT / RIGHT", 40, 192, UI.C.cream2, "right", 540)
   local selectedPlane = me and me.planeType or Settings.data.aircraft
   if me then
     local list = Aircraft.all()
     for i, spec in ipairs(list) do
       local x = (i == 1) and 40 or 310
-      local y = 198
+      local y = 204
       local w, h = 250, 54
       local selected = spec.id == selectedPlane
       UI.set(selected and UI.C.orange or UI.C.ink3, selected and 0.20 or 0.08)
@@ -555,46 +555,46 @@ function Multiplayer:drawLobby()
   love.graphics.setFont(UI.font(8, true))
   local readyCount = room.readyCount or 0
   love.graphics.print(room.allReady and "ALL PILOTS READY"
-    or string.format("READY %d / %d", readyCount, #room.players), 40, 260)
+    or string.format("READY %d / %d", readyCount, #room.players), 40, 264)
   UI.set(UI.C.cream2)
   love.graphics.setFont(UI.font(7))
   love.graphics.print(string.format("MODE %s   /   BOTS %d   /   BOT %s",
     (room.mode or "FFA"):upper(), room.bots or 0,
-    (room.botDifficulty or "VETERAN"):upper()), 40, 272)
+    (room.botDifficulty or "VETERAN"):upper()), 40, 276)
   if room.lastMvpName then
     UI.set(UI.C.orange)
-    love.graphics.print("MATCH MVP  " .. tostring(room.lastMvpName):upper(), 40, 282)
+    love.graphics.print("MATCH MVP  " .. tostring(room.lastMvpName):upper(), 40, 286)
   end
 
-  UI.button(36, 300, 84, 24, "LEAVE", {
+  UI.button(36, 304, 84, 24, "LEAVE", {
     hover = self.hover == "leave", font = UI.font(8, true),
   })
   if me then
-    UI.button(128, 300, 84, 24, me.ready and "UNREADY" or "READY", {
+    UI.button(128, 304, 84, 24, me.ready and "UNREADY" or "READY", {
       selected = me.ready == true, hover = self.hover == "ready",
       font = UI.font(7, true),
     })
   end
   if room.host == self.client.selfId then
     local member = self:selectedMember()
-    UI.button(220, 300, 90, 24, "START", {
+    UI.button(220, 304, 90, 24, "START", {
       selected = self:canStart(), disabled = not self:canStart(),
       hover = self.hover == "start", font = UI.font(8, true),
     })
-    UI.button(318, 300, 70, 24, "KICK", {
+    UI.button(318, 304, 70, 24, "KICK", {
       disabled = not member or member.id == room.host,
       hover = self.hover == "kick", font = UI.font(7, true),
     })
-    UI.button(396, 300, 70, 24, "ROOM", {
+    UI.button(396, 304, 70, 24, "ROOM", {
       hover = self.hover == "room", font = UI.font(7, true),
     })
   end
-  UI.button(474, 300, 100, 24, "SETTINGS", {
+  UI.button(474, 304, 100, 24, "SETTINGS", {
     hover = self.hover == "settings", font = UI.font(7, true),
   })
 
   UI.small("Y READY   /   LEFT RIGHT AIRCRAFT   /   O ROOM   /   ESC LEAVE",
-    36, 332, UI.C.cream2, "left", 560)
+    36, 338, UI.C.cream2, "left", 560)
 
   if self.roomSettingsOpen then self:drawRoomSettings() end
 end
@@ -785,26 +785,26 @@ function Multiplayer:mousepressed(x, y)
       return
     end
 
-    if UI.hit(mx, my, 36, 300, 84, 24) then
+    if UI.hit(mx, my, 36, 304, 84, 24) then
       self:leaveRoom()
-    elseif self:myRoomPlayer() and UI.hit(mx, my, 128, 300, 84, 24) then
+    elseif self:myRoomPlayer() and UI.hit(mx, my, 128, 304, 84, 24) then
       self:toggleReady()
-    elseif UI.hit(mx, my, 220, 300, 90, 24) and self:canStart() then
+    elseif UI.hit(mx, my, 220, 304, 90, 24) and self:canStart() then
       self.client:send({ type = "start" })
-    elseif UI.hit(mx, my, 318, 300, 70, 24) then
+    elseif UI.hit(mx, my, 318, 304, 70, 24) then
       local member = self:selectedMember()
       if room.host == self.client.selfId and member and member.id ~= room.host then
         self.client:send({ type = "kick", target = member.id })
       end
-    elseif room.host == self.client.selfId and UI.hit(mx, my, 396, 300, 70, 24) then
+    elseif room.host == self.client.selfId and UI.hit(mx, my, 396, 304, 70, 24) then
       self.roomSettingsOpen = true
-    elseif UI.hit(mx, my, 474, 300, 100, 24) then
+    elseif UI.hit(mx, my, 474, 304, 100, 24) then
       App:push(require("src.scenes.settings"))
     elseif self:myRoomPlayer() then
       local list = Aircraft.all()
-      if UI.hit(mx, my, 40, 198, 250, 54) and list[1] then
+      if UI.hit(mx, my, 40, 204, 250, 54) and list[1] then
         self:chooseAircraft(list[1].id)
-      elseif UI.hit(mx, my, 310, 198, 250, 54) and list[2] then
+      elseif UI.hit(mx, my, 310, 204, 250, 54) and list[2] then
         self:chooseAircraft(list[2].id)
       end
     end
@@ -812,6 +812,7 @@ function Multiplayer:mousepressed(x, y)
 end
 
 return Multiplayer
+
 
 
 
