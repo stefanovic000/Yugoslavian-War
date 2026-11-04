@@ -15,10 +15,10 @@ local SHAPES = {
   { part = "guns",   x = 12,  y = -2, r = 3.4 },
   { part = "engine", x = 6,   y = 0,  r = 5.0 },
   { part = "engine", x = -3,  y = 0,  r = 5.0 },
-  -- single low wing; the old upper-wing circle was left over from the
-  -- symmetric pod and no longer matched the silhouette.
-  { part = "wing",   x = -2,  y = 7,  r = 4.2 },
-  { part = "wing",   x = -9,  y = 7,  r = 3.5 },
+  -- single low wing; circles follow the actual side-view wing polygon rather
+  -- than the old lower y=7 placement.
+  { part = "wing",   x = -2,  y = 3,  r = 4.0 },
+  { part = "wing",   x = -8,  y = 4,  r = 3.6 },
   { part = "tail",   x = -13, y = 0,  r = 4.2 },
   { part = "tail",   x = -16, y = -5, r = 3.2 },
 }
@@ -28,12 +28,16 @@ Combat.SHAPES = SHAPES
 -- The sprite is mirrored horizontally when flying left, not rotated upside
 -- down. Hitboxes and effects must use the same transform or left-facing
 -- planes get a vertically flipped wing/fin hitbox.
-local function worldToLocal(angle, dx, dy)
+local function worldToLocalMode(angle, dx, dy, mirror)
   local ca, sa = math.cos(angle), math.sin(angle)
-  if ca < 0 then
+  if mirror then
     return dx * ca + dy * sa, dx * sa - dy * ca
   end
   return dx * ca + dy * sa, -dx * sa + dy * ca
+end
+
+local function worldToLocal(angle, dx, dy)
+  return worldToLocalMode(angle, dx, dy, math.cos(angle) < 0)
 end
 
 local function localToWorld(angle, x, y, lx, ly)
@@ -58,14 +62,9 @@ end
 
 -- Returns part, hitX, hitY if the bullet segment intersects this plane.
 -- Tests wrapped copies so a plane straddling an edge still has a solid hitbox.
-function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
+function Combat.bulletHitsPlaneAt(bullet, plane, cx, cy, angle, worldW, worldH)
   if not plane.alive or bullet.owner == plane.id then return nil end
 
-  local w = worldW or C.WORLD.w
-  local h = worldH or C.WORLD.h
-
-  local cx = plane.x
-  local cy = plane.y
   local minX = math.min(bullet.px, bullet.x) - 30
   local maxX = math.max(bullet.px, bullet.x) + 30
   local minY = math.min(bullet.py, bullet.y) - 30
@@ -73,16 +72,28 @@ function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
   if cx >= minX and cx <= maxX and cy >= minY and cy <= maxY then
     local dx1, dy1 = bullet.px - cx, bullet.py - cy
     local dx2, dy2 = bullet.x - cx, bullet.y - cy
-    local lx1, ly1 = worldToLocal(plane.angle, dx1, dy1)
-    local lx2, ly2 = worldToLocal(plane.angle, dx2, dy2)
+    local ca = math.cos(angle)
+    local modes = { ca < 0 }
+    -- Near vertical, the renderer crossfades the two mirrored poses. Test both
+    -- mirrored hitbox orientations so a visible wing/tail is never a phantom.
+    if math.abs(ca) < 0.2 then modes[2] = not modes[1] end
 
-    for _, shape in ipairs(SHAPES) do
-      if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y, shape.r) then
-        return shape.part, bullet.x, bullet.y
+    for _, mirror in ipairs(modes) do
+      local lx1, ly1 = worldToLocalMode(angle, dx1, dy1, mirror)
+      local lx2, ly2 = worldToLocalMode(angle, dx2, dy2, mirror)
+      for _, shape in ipairs(SHAPES) do
+        if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y, shape.r) then
+          return shape.part, bullet.x, bullet.y
+        end
       end
     end
   end
   return nil
+end
+
+function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
+  return Combat.bulletHitsPlaneAt(bullet, plane, plane.x, plane.y, plane.angle,
+    worldW, worldH)
 end
 
 function Combat.pickupHitsPlane(pickup, plane, worldW, worldH)

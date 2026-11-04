@@ -59,9 +59,9 @@ cases[#cases + 1] = {
   fn = function()
     local sim = newSim(12)
     local p = sim:addPlane({ id = 1, x = 400, y = 225, angle = math.pi, speed = 120, invuln = 0 })
-    -- Local wing is (-2, +7); at angle pi the mirrored sprite puts it at
-    -- world (+2, +7). This is deliberately not computed with Combat.toWorld.
-    local wx, wy = p.x + 2, p.y + 7
+    -- Local wing tip is (-8, +4); at angle pi the mirrored sprite puts it at
+    -- world (+8, +4). This is deliberately not computed with Combat.toWorld.
+    local wx, wy = p.x + 8, p.y + 4
     local b = { x = wx, y = wy, px = wx, py = wy, owner = 2 }
     local part = Combat.bulletHitsPlane(b, p, C.WORLD.w, C.WORLD.h)
     assert(part == "wing", "left wing hitbox was " .. tostring(part))
@@ -180,16 +180,17 @@ cases[#cases + 1] = {
     local sim = newSim(6)
     local p = sim:addPlane({ id = 1, x = 320, y = 180, angle = 0, invuln = 0 })
 
-    local function shootAt(lx, ly)
+    local function shootAt(lx, ly, span)
+      span = span or 4
       local bullet = {
-        owner = 99, px = 320 + lx - 4, py = 180 + ly, x = 320 + lx + 4, y = 180 + ly,
+        owner = 99, px = 320 + lx - span, py = 180 + ly, x = 320 + lx + span, y = 180 + ly,
       }
       return Combat.bulletHitsPlane(bullet, p, sim.w, sim.h)
     end
 
     assert(shootAt(17, 0) == "guns", "nose should be guns")
     assert(shootAt(-13, 0) == "tail", "tail should be tail")
-    assert(shootAt(-2, 8) == "wing", "wing should be wing")
+    assert(shootAt(-8, 4, 1) == "wing", "wing tip should be wing")
     assert(shootAt(0, 0) == "engine", "body should be engine")
     assert(shootAt(0, 40) == nil, "miss should not hit")
   end,
@@ -218,6 +219,45 @@ cases[#cases + 1] = {
     }
     local part = Combat.bulletHitsPlane(bullet, target, sim.w, sim.h)
     assert(part ~= nil, "fast segment skipped the hitbox")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "a swept shot catches a moving target's previous pose",
+  fn = function()
+    local sim = newSim(23)
+    local target = sim:addPlane({ id = 1, x = 320, y = 150, angle = 0, invuln = 0 })
+    local bullet = { owner = 2, px = 295, py = 180, x = 345, y = 180 }
+    local part = Combat.bulletHitsPlaneAt(bullet, target, 320, 180, 0, sim.w, sim.h)
+    assert(part ~= nil, "swept target pose missed")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "round start removes preparation invulnerability",
+  fn = function()
+    local Match = require("server.match")
+    local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 44)
+    assert(m.sim:getPlane(1).invuln > 0)
+    m:beginRound()
+    assert(m.sim:getPlane(1).invuln == 0, "spawn protection survived round start")
+    assert(m.sim:getPlane(2).invuln == 0, "spawn protection survived round start")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "near-vertical crossfade tests both mirrored hitboxes",
+  fn = function()
+    local sim = newSim(24)
+    local p = sim:addPlane({
+      id = 1, x = 400, y = 225, angle = math.pi * 0.5 - 0.01,
+      speed = 120, invuln = 0,
+    })
+    -- Mirrored local wing tip (-8, +4) at this angle.
+    local wx, wy = p.x + 4, p.y - 8
+    local b = { owner = 2, px = wx - 1, py = wy, x = wx + 1, y = wy }
+    local part = Combat.bulletHitsPlane(b, p, sim.w, sim.h)
+    assert(part ~= nil, "vertical mirrored wing was a phantom")
   end,
 }
 

@@ -139,7 +139,9 @@ function Match:beginRound()
   self.prepTime = 0
   for _, id in ipairs(self.players) do
     local p = self.sim:getPlane(id)
-    if p then p.invuln = 2 end
+    -- Spawn protection was for the preparation countdown. It must not eat
+    -- bullets after the round has actually started.
+    if p then p.invuln = 0 end
   end
   self.events[#self.events + 1] = {
     type = "round_start", round = self.round,
