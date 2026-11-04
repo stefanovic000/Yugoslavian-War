@@ -474,6 +474,7 @@ function NetMatch:updateVisuals(dt)
   for id, target in pairs(self.visualTargets or {}) do
     local v = self.visuals[id]
     if v then
+      v.prevX, v.prevY, v.prevAngle = v.x, v.y, v.angle
       local k = 1 - math.exp(-15 * dt)
       v.x = v.x + (target.x - v.x) * k
       v.y = v.y + (target.y - v.y) * k
@@ -693,6 +694,24 @@ function NetMatch:updateLocalBullets(dt, input)
     b.life = b.life - dt
     local stale = not b.serverId
       and (self.uiTime - (b.born or 0)) > ((self.client.rtt or 0.08) + 0.25)
+    if not stale and b.life > 0 and b.x >= C.WORLD.wallLeft and b.x <= C.WORLD.wallRight
+      and b.y >= -10 and b.y <= C.WORLD.groundY then
+      for id, v in pairs(self.visuals) do
+        if id ~= self.selfId and v.alive
+          and not (self.teamMode and v.team == self.localTeam) then
+          local b2 = { owner = self.selfId, px = b.px, py = b.py, x = b.x, y = b.y,
+            radius = C.BULLET.radius }
+          local part = Combat.bulletHitsMovingPlane(b2, v,
+            v.prevX or v.x, v.prevY or v.y, v.prevAngle or v.angle,
+            C.WORLD.w, C.WORLD.h)
+          if part then
+            -- Predicted impact is visual only. The server still decides damage.
+            b.life = 0
+            break
+          end
+        end
+      end
+    end
     if b.life <= 0 or stale or b.x < C.WORLD.wallLeft or b.x > C.WORLD.wallRight
       or b.y < -10 or b.y > C.WORLD.groundY then
       self.localBullets[i] = self.localBullets[#self.localBullets]
