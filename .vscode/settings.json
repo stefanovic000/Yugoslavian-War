@@ -1,0 +1,10 @@
+{
+  "Lua.runtime.version": "LuaJIT",
+  "Lua.workspace.checkThirdParty": false,
+  "Lua.diagnostics.globals": [
+    "love",
+    "jit",
+    "arg",
+    "DOGFIGHT"
+  ]
+}

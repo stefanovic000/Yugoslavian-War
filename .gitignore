@@ -1,0 +1,6 @@
+# LÖVE runtime is restored with tools/fetch-love.ps1
+tools/love/
+
+# build artifacts
+build/
+*.love

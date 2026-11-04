@@ -1,0 +1,36 @@
+[Unit]
+Description=Yugoslavian War dedicated server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/Yugoslavian-planes
+ExecStart=/usr/bin/lua5.1 server/run.lua --port=7777
+Restart=on-failure
+RestartSec=2
+SyslogIdentifier=yugoslavian-war
+UMask=027
+LimitNOFILE=4096
+
+# The service reads its files from /home/ubuntu; it needs no writes.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target
