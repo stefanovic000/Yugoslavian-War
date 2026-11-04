@@ -1,7 +1,6 @@
 -- conf.lua
--- Window + module configuration. The console window is enabled by default on
--- Windows, except when VS Code's Local Lua Debugger is attached (it needs
--- stdio for its own protocol).
+-- Window + module configuration. Release builds never open a console window;
+-- the in-game F2 console and file logging remain available.
 
 local function hasFlag(flag)
   for _, a in ipairs(arg or {}) do
@@ -12,14 +11,14 @@ local function hasFlag(flag)
   return false
 end
 
-local debuggerAttached = os.getenv("LOCAL_LUA_DEBUGGER_VSCODE") == "1"
-local isWindows = jit and jit.os == "Windows"
 local serverMode = hasFlag("server")
 
 function love.conf(t)
   t.identity = "dogfight"
   t.version = "11.5"
-  t.console = isWindows and not debuggerAttached and not hasFlag("no-console")
+  -- Release builds use the normal GUI executable; do not pop a console window.
+  -- The in-game F2 developer console and file logging remain available.
+  t.console = false
   t.accelerometerjoystick = false
   t.externalstorage = false
   t.gammacorrect = false
