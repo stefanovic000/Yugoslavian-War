@@ -345,15 +345,9 @@ function Sprites.drawCloud(cloud, ox, oy, alphaMul)
 end
 
 function Sprites.drawCloudCopies(cloud, alphaMul)
-  local w, h = C.WORLD.w, C.WORLD.h
-  for _, ox in ipairs({ 0, -w, w }) do
-    for _, oy in ipairs({ 0, -h, h }) do
-      if cloud.x + ox > -90 and cloud.x + ox < w + 90
-        and cloud.y + oy > -90 and cloud.y + oy < h + 90 then
-        Sprites.drawCloud(cloud, ox, oy, alphaMul)
-      end
-    end
-  end
+  -- The walled arena is bounded: drawing wrapped copies made a cloud appear
+  -- behind the player while the vision raycast used a different real position.
+  Sprites.drawCloud(cloud, 0, 0, alphaMul)
 end
 
 return Sprites
