@@ -395,4 +395,42 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "vision sectors and cloud line of sight",
+  fn = function()
+    local Vision = require("shared.vision")
+    local Clouds = require("shared.clouds")
+    local clouds = Clouds.new(77, 0)
+    clouds.list = {}
+    local viewer = { x = 400, y = 225, angle = 0, alive = true }
+    assert(Vision.canSee(viewer, { x = 800, y = 225, alive = true }, clouds), "front target hidden")
+    assert(not Vision.canSee(viewer, { x = 100, y = 225, alive = true }, clouds), "far rear target visible")
+    assert(Vision.canSee(viewer, { x = 320, y = 225, alive = true }, clouds), "near rear target hidden")
+
+    clouds.list = {
+      { x = 550, y = 225, speed = 0, puffs = { { dx = 0, dy = 0, r = 40 } } },
+    }
+    assert(not Vision.canSee(viewer, { x = 800, y = 225, alive = true }, clouds),
+      "cloud did not block forward vision")
+    assert(not Vision.lineOfSight(viewer, { x = 650, y = 225 }, clouds),
+      "cloud did not block line of sight")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "firing reveal respects range and line of sight",
+  fn = function()
+    local Vision = require("shared.vision")
+    local Clouds = require("shared.clouds")
+    local clouds = Clouds.new(78, 0)
+    clouds.list = {}
+    local viewer = { x = 300, y = 225, angle = 0, alive = true }
+    assert(Vision.lineOfSight(viewer, { x = 700, y = 225 }, clouds), "clear shot line missing")
+    clouds.list = {
+      { x = 500, y = 225, speed = 0, puffs = { { dx = 0, dy = 0, r = 50 } } },
+    }
+    assert(not Vision.lineOfSight(viewer, { x = 700, y = 225 }, clouds), "cloud did not hide firing")
+  end,
+}
+
 return cases

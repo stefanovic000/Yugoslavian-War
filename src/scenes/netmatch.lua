@@ -13,6 +13,8 @@ local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
 local Walls = require("src.game.walls")
 local Camera = require("src.game.camera")
+local Vision = require("shared.vision")
+local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
@@ -65,6 +67,7 @@ function NetMatch:enter(client, startMsg)
   self.localHidden = false
   self.wasStalling = false
   self.camera = Camera.new()
+  self.reveal = {}
   self.localBullets = {}
   self.localFireTimer = 0
   self.spectator = startMsg.spectator == true
@@ -123,6 +126,7 @@ function NetMatch:applyStart(msg)
   self.localHidden = false
   self.wasStalling = false
   self.camera = Camera.new()
+  self.reveal = {}
   self.history = {}
   self.seq = 0
   self.ack = 0
@@ -145,6 +149,7 @@ function NetMatch:applyStart(msg)
 end
 
 function NetMatch:leave()
+  Audio.stopEngines()
   Debug:removeCommands("netmatch")
   Debug:clearWatches("netmatch")
   log.info("netmatch left")
@@ -213,8 +218,20 @@ function NetMatch:processEvents(events)
       -- Own shots get a locally predicted muzzle flash so the flash, tracer
       -- and nose agree even when the authoritative snapshot is in flight.
       if e.owner ~= self.selfId then
-        Audio.play("shot", 0.09)
-        self.particles:muzzle(e.x, e.y, e.angle, { 1, 0.7, 0.3 })
+        if self.localPlane and self.localPlane.alive then
+          local shooter = self.visuals[e.owner]
+          if shooter then
+            local dist = M.dist(self.localPlane.x, self.localPlane.y, shooter.x, shooter.y)
+            if dist <= C.VISION.revealRange
+              and Vision.lineOfSight(self.localPlane, shooter, self.clouds) then
+              self.reveal[e.owner] = C.VISION.revealTime
+            end
+          end
+        end
+        if not Clouds.pointInside(self.clouds, e.x, e.y) then
+          Audio.play("shot", 0.09)
+          self.particles:muzzle(e.x, e.y, e.angle, { 1, 0.7, 0.3 })
+        end
       end
       if e.owner == self.selfId then self.shake = math.max(self.shake, 0.35) end
     elseif e.type == "hit" then
@@ -282,6 +299,7 @@ function NetMatch:processEvents(events)
       self.localPlane = nil
       self.localHidden = false
       self.wasStalling = false
+      self.reveal = {}
       self.aDown, self.dDown = false, false
       self.lastPitchKey = nil
       self.respawns = {}
@@ -446,6 +464,10 @@ function NetMatch:update(dt)
   self.shake = math.max(0, self.shake - dt * 18)
   self.hitMarker = math.max(0, self.hitMarker - dt)
   for k, v in pairs(self.partFlash) do self.partFlash[k] = math.max(0, v - dt) end
+  for id, t in pairs(self.reveal) do
+    t = t - dt
+    if t <= 0 then self.reveal[id] = nil else self.reveal[id] = t end
+  end
   if self.localPlane then
     self.hullGhost = damp(self.hullGhost, self.localPlane.hp / self.localPlane.maxHp, 4, dt)
     if self.localPlane.alive and self.localPlane.stalling and not self.wasStalling then
@@ -461,6 +483,23 @@ function NetMatch:update(dt)
   self.particles:update(dt)
   self:updateVisuals(dt)
   self:updateCamera(dt)
+  if self.localPlane and self.localPlane.alive and not self.spectator then
+    local seen = {}
+    for id, v in pairs(self.visuals) do
+      if id ~= self.selfId and v.alive then
+        seen[id] = true
+        Audio.setEngine(id,
+          v.x - self.localPlane.x, v.y - self.localPlane.y,
+          (self.visualTargets[id] and self.visualTargets[id].throttle) or 0.6,
+          true, Clouds.pointInside(self.clouds, v.x, v.y))
+      end
+    end
+    for id in pairs(Audio.engines) do
+      if not seen[id] then Audio.setEngine(id, 0, 0, 0, false) end
+    end
+  else
+    Audio.stopEngines()
+  end
 
   -- Remote damage smoke only. Engine exhaust trails were removed because they
   -- could smear from the snapshot position while the predicted plane was
@@ -620,7 +659,8 @@ function NetMatch:drawWorld()
           vx = b.vx, vy = b.vy, owner = b.owner,
           team = 2,
         }
-        if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10 then
+        if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
+          and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
           Sprites.drawBullet(bullet)
         end
       end
@@ -630,7 +670,8 @@ function NetMatch:drawWorld()
     -- even while turning and waiting for the next snapshot.
     for _, b in ipairs(self.localBullets) do
       if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
-        and b.y > -10 and b.y < C.WORLD.groundY then
+        and b.y > -10 and b.y < C.WORLD.groundY
+        and not Clouds.pointInside(self.clouds, b.x, b.y) then
         Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = 1 })
       end
     end
@@ -645,22 +686,32 @@ function NetMatch:drawWorld()
   -- Remote planes.
   for id, v in pairs(self.visuals) do
     if id ~= self.selfId and v.alive then
-      if not v.hidden then
+      local visible = true
+      if not self.spectator and self.localPlane and self.localPlane.alive then
+        visible = Vision.canSee(self.localPlane, v, self.clouds)
+      end
+      local reveal = (not visible) and (self.reveal[id] or 0) > 0
+      if visible or reveal then
         local plane = {
           x = v.x, y = v.y, angle = v.angle, throttle = 0.6, alive = true,
           invuln = 0, hitFlash = 0, parts = v.parts or {},
           team = id == 1 and 1 or 2,
         }
-        Sprites.drawPlaneCopies(plane, self.uiTime, { colors = Sprites.TEAM.enemy })
-        love.graphics.setFont(UI.font(7))
-        UI.set(UI.C.cream)
-        local labelX = M.clamp(v.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
-        local barX = M.clamp(v.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
-        love.graphics.printf(self.names[id] or ("PILOT" .. id), labelX, v.y - 28, 60, "center")
-        love.graphics.setColor(0.08, 0.10, 0.09, 0.8)
-        love.graphics.rectangle("fill", barX, v.y - 19, 30, 3)
-        love.graphics.setColor(0.85, 0.40, 0.25, 0.95)
-        love.graphics.rectangle("fill", barX, v.y - 19, 30 * (v.hp / C.PLANE.hp), 3)
+        Sprites.drawPlaneCopies(plane, self.uiTime, {
+          colors = Sprites.TEAM.enemy,
+          alpha = reveal and 0.25 or 1,
+        })
+        if visible then
+          love.graphics.setFont(UI.font(7))
+          UI.set(UI.C.cream)
+          local labelX = M.clamp(v.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
+          local barX = M.clamp(v.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
+          love.graphics.printf(self.names[id] or ("PILOT" .. id), labelX, v.y - 28, 60, "center")
+          love.graphics.setColor(0.08, 0.10, 0.09, 0.8)
+          love.graphics.rectangle("fill", barX, v.y - 19, 30, 3)
+          love.graphics.setColor(0.85, 0.40, 0.25, 0.95)
+          love.graphics.rectangle("fill", barX, v.y - 19, 30 * (v.hp / C.PLANE.hp), 3)
+        end
       end
     end
   end
@@ -931,6 +982,9 @@ end
 function NetMatch:draw()
   Sky.draw()
   self:drawWorld()
+  if self.localPlane and self.localPlane.alive and not self.spectator then
+    VisionOverlay.draw(self.localPlane, self.camera)
+  end
   self:drawHud()
   if self.leavePrompt then self:drawLeavePrompt() end
 end

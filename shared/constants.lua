@@ -86,6 +86,17 @@ local C = {
     maxRadius = 42,
     alpha = 0.88,
   },
+
+  VISION = {
+    near = 140,
+    frontRange = 500,
+    frontAngle = 70,
+    sideRange = 320,
+    sideAngle = 125,
+    rearRange = 240,
+    revealTime = 1.0,
+    revealRange = 500,
+  },
 }
 
 return C

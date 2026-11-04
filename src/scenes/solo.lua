@@ -18,6 +18,8 @@ local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
 local Walls = require("src.game.walls")
 local Camera = require("src.game.camera")
+local Vision = require("shared.vision")
+local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
@@ -83,6 +85,8 @@ function Solo:enter()
   self.enemyRespawn = 0
   self.paused = false
   self.camera = Camera.new()
+  self.enemyVisible = false
+  self.revealEnemy = 0
   self.pauseIndex = 1
   self.hover = nil
   self.uiTime = 0
@@ -103,6 +107,7 @@ function Solo:enter()
 end
 
 function Solo:leave()
+  Audio.stopEngines()
   Debug:removeCommands("solo")
   Debug:clearWatches("solo")
   log.info("solo test flight left")
@@ -192,8 +197,18 @@ end
 function Solo:handleEvents(events)
   for _, e in ipairs(events) do
     if e.type == "shot" then
+      if e.owner == self.enemy.id and self.player.alive and self.enemy.alive then
+        local dist = M.dist(self.player.x, self.player.y, self.enemy.x, self.enemy.y)
+        if dist <= C.VISION.revealRange
+          and Vision.lineOfSight(self.player, self.enemy, self.sim.clouds) then
+          self.revealEnemy = C.VISION.revealTime
+        end
+      end
+      local inCloud = Clouds.pointInside(self.sim.clouds, e.x, e.y)
       Audio.play("shot", e.owner == 1 and 0.20 or 0.10)
-      self.particles:muzzle(e.x, e.y, e.angle, e.owner == 1 and { 0.55, 0.95, 0.95 } or { 1, 0.7, 0.3 })
+      if not inCloud then
+        self.particles:muzzle(e.x, e.y, e.angle, e.owner == 1 and { 0.55, 0.95, 0.95 } or { 1, 0.7, 0.3 })
+      end
       if e.owner == 1 then self.shake = math.max(self.shake, 0.4) end
     elseif e.type == "hit" then
       Audio.play("hit", e.victim == 1 and 0.30 or 0.20)
@@ -362,6 +377,19 @@ function Solo:update(dt)
   local follow = self.player.alive and self.player or (self.enemy.alive and self.enemy)
   if follow then Camera.follow(self.camera, follow.x, follow.y, dt) end
 
+  self.revealEnemy = math.max(0, self.revealEnemy - dt)
+  self.enemyVisible = self.player.alive and self.enemy.alive
+    and Vision.canSee(self.player, self.enemy, self.sim.clouds)
+
+  if self.enemy.alive and self.player.alive then
+    Audio.setEngine("demo",
+      self.enemy.x - self.player.x, self.enemy.y - self.player.y,
+      self.enemy.throttle, true,
+      Clouds.pointInside(self.sim.clouds, self.enemy.x, self.enemy.y))
+  else
+    Audio.setEngine("demo", 0, 0, 0, false)
+  end
+
   if self.player.alive and self.player.stalling and not self.wasStalling then
     Audio.play("stall", 0.22)
   end
@@ -403,7 +431,9 @@ function Solo:drawWorld()
   Ground.draw()
 
   for _, b in ipairs(self.sim.bullets) do
-    if b.x > -10 and b.x < W + 10 and b.y > -10 and b.y < H + 10 then
+    if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
+      and b.y > -10 and b.y < C.WORLD.groundY
+      and not Clouds.pointInside(self.sim.clouds, b.x, b.y) then
       Sprites.drawBullet(b)
     end
   end
@@ -415,20 +445,25 @@ function Solo:drawWorld()
   self.particles:draw()
 
   local playerHidden = self.player.alive and covered(self.sim.clouds, self.player)
-  local enemyHidden = self.enemy.alive and covered(self.sim.clouds, self.enemy)
+  local reveal = (not self.enemyVisible) and self.revealEnemy > 0
 
-  if self.enemy.alive and not enemyHidden then
-    Sprites.drawPlaneCopies(self.enemy, self.uiTime, { colors = Sprites.TEAM.enemy })
-    love.graphics.setFont(UI.font(8))
-    UI.set(UI.C.cream)
-    local labelX = M.clamp(self.enemy.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
-    local barX = M.clamp(self.enemy.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
-    love.graphics.printf("DEMO", labelX, self.enemy.y - 28, 60, "center")
-    love.graphics.setColor(0.1, 0.12, 0.12, 0.7)
-    love.graphics.rectangle("fill", barX, self.enemy.y - 19, 30, 3)
-    love.graphics.setColor(0.95, 0.45, 0.30, 0.95)
-    love.graphics.rectangle("fill", barX, self.enemy.y - 19,
-      30 * (self.enemy.hp / self.enemy.maxHp), 3)
+  if self.enemy.alive and (self.enemyVisible or reveal) then
+    Sprites.drawPlaneCopies(self.enemy, self.uiTime, {
+      colors = Sprites.TEAM.enemy,
+      alpha = reveal and 0.25 or 1,
+    })
+    if self.enemyVisible then
+      love.graphics.setFont(UI.font(8))
+      UI.set(UI.C.cream)
+      local labelX = M.clamp(self.enemy.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
+      local barX = M.clamp(self.enemy.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
+      love.graphics.printf("DEMO", labelX, self.enemy.y - 28, 60, "center")
+      love.graphics.setColor(0.1, 0.12, 0.12, 0.7)
+      love.graphics.rectangle("fill", barX, self.enemy.y - 19, 30, 3)
+      love.graphics.setColor(0.95, 0.45, 0.30, 0.95)
+      love.graphics.rectangle("fill", barX, self.enemy.y - 19,
+        30 * (self.enemy.hp / self.enemy.maxHp), 3)
+    end
   end
 
   if self.player.alive then
@@ -639,6 +674,7 @@ end
 function Solo:draw()
   self:drawSky()
   self:drawWorld()
+  if self.player.alive then VisionOverlay.draw(self.player, self.camera) end
   self:drawHud()
   if self.paused then
     self:drawPause()

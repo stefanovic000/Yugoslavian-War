@@ -7,6 +7,7 @@ local Audio = {
   enabled = true,
   initialized = false,
   sources = {},
+  engines = {},
 }
 
 local function clamp(x, lo, hi)
@@ -78,6 +79,14 @@ function Audio.init()
       local env = (1 - t / d) ^ 2
       return (random() * 2 - 1) * env * 0.30
     end)
+
+    Audio.sources.engine = build(1.0, function(t)
+      local trem = 0.85 + 0.15 * math.sin(2 * math.pi * 7 * t)
+      return (math.sin(2 * math.pi * 55 * t) * 0.36
+        + math.sin(2 * math.pi * 110 * t) * 0.18
+        + math.sin(2 * math.pi * 165 * t) * 0.08) * trem * 0.18
+    end)
+    Audio.sources.engine:setLooping(true)
   end)
   if not ok then
     Audio.enabled = false
@@ -99,6 +108,38 @@ end
 
 function Audio.setEnabled(v)
   Audio.enabled = v and true or false
+end
+
+function Audio.stopEngines()
+  for _, e in pairs(Audio.engines) do
+    pcall(e.src.stop, e.src)
+  end
+  Audio.engines = {}
+end
+
+-- Continuous engine drone for a remote aircraft. It is audible even when the
+-- aircraft is outside the vision cone, which is the main rear-awareness cue.
+function Audio.setEngine(id, dx, dy, throttle, active, occluded)
+  if not Audio.enabled then return end
+  Audio.init()
+  if not Audio.enabled then return end
+  local e = Audio.engines[id]
+  if not active then
+    if e then pcall(e.src.stop, e.src); Audio.engines[id] = nil end
+    return
+  end
+  if not e then
+    e = { src = Audio.sources.engine:clone() }
+    e.src:setLooping(true)
+    e.src:play()
+    Audio.engines[id] = e
+  end
+  local dist = math.sqrt(dx * dx + dy * dy)
+  local vol = clamp(1 - dist / 700, 0.015, 0.16)
+  if occluded then vol = vol * 0.55 end
+  e.src:setVolume(vol)
+  e.src:setPitch(0.70 + clamp(throttle or 0.6, 0, 1) * 0.50)
+  e.src:setPosition(clamp(dx / 320, -1, 1), 0, -1)
 end
 
 -- Approximate attenuation for world-space combat events.

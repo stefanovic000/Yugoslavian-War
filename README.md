@@ -25,6 +25,8 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
 - **Camera-scrolled walled arena**: 1000×520 world, old-town building walls, no wrap, smooth clamped camera and extra vertical space to flank.
+- **Directional engine audio** and combat cues for guns, hits, explosions, stalls, pickups and respawns.
+- **WW2 awareness**: long forward arc, broad side arc, shorter rear arc, cloud line-of-sight blocking and a subtle marked blind area. Firing reveals a faint 1-second silhouette, never a HUD marker.
 - **Low ground** at the bottom of the arena. Touch it and the aircraft explodes and respawns.
 - Aircraft are **5% smaller** than the original silhouette, with a matching smaller collision radius.
 - **Cloud cover** that actually hides aircraft. Cloud positions and per-plane visibility are server-authoritative.
@@ -43,7 +45,7 @@ procedurally. There are no large art packs and no runtime downloads.
 
 ### Multiplayer match
 
-![Multiplayer match over the Adriatic](docs/preview-match.png)
+![Multiplayer match over the Adriatic](docs/preview-vision-net.png)
 
 ### Room lobby
 
@@ -147,6 +149,9 @@ configured for TCP 7777.
 - **Damage:** 120 hull, with separate engine, wing, tail and gun health.
 - **Clouds:** server-generated puffs; the server sends their positions and each
   plane's `hidden` flag in snapshots. The client never decides visibility alone.
+- **Awareness:** aircraft are visible in the forward/side/rear arcs and are
+  hidden beyond them or behind cloud. A faint firing silhouette lasts one
+  second. There are no minimap or edge markers.
 - **Ground:** a low strip at `y = 445`; contact is a crash, not a kill. The
   aircraft explodes and starts a respawn.
 - **Arena:** 1000×520 world units viewed through a smooth 800×450 camera at
@@ -177,7 +182,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 40 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 42 unit tests (flight, hitboxes, clouds, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 
