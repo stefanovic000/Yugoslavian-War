@@ -26,7 +26,7 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
 - **Camera-scrolled walled arena**: 1000×520 world, old-town building walls, no wrap, smooth clamped camera and extra vertical space to flank.
 - **Directional engine audio** and combat cues for guns, hits, explosions, stalls, pickups and respawns.
-- **WW2 awareness**: long forward arc, broad side arc, shorter rear arc, cloud line-of-sight blocking and a subtle marked blind area. Firing reveals a faint 1-second silhouette, never a HUD marker.
+- **WW2 awareness**: long forward arc, broad side arc, shorter rear arc, cloud line-of-sight blocking and a subtly marked blind area, including cloud shadows. Firing reveals a faint 1-second silhouette, never a HUD marker.
 - **Low ground** at the bottom of the arena. Touch it and the aircraft explodes and respawns.
 - Aircraft are **5% smaller** than the original silhouette, with a matching smaller collision radius.
 - **Cloud cover** that actually hides aircraft. Cloud positions and per-plane visibility are server-authoritative.

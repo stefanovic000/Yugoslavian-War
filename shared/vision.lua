@@ -35,6 +35,7 @@ end
 
 function Vision.canSee(viewer, target, clouds)
   if not viewer or not target or not target.alive then return false end
+  if Clouds.pointInside(clouds, viewer.x, viewer.y) then return false end
   local dist = M.dist(viewer.x, viewer.y, target.x, target.y)
   if dist <= V.near then
     return Vision.lineOfSight(viewer, target, clouds)
@@ -45,14 +46,43 @@ function Vision.canSee(viewer, target, clouds)
 end
 
 -- World-space outline of the awareness area, used by the subtle blind-area
--- overlay. The polygon follows the aircraft nose.
-function Vision.outline(viewer, segments)
-  segments = segments or 64
+-- overlay. It follows the aircraft nose and stops at the first cloud puff in
+-- each direction, so cloud shadows are marked as unseen.
+local function firstCloudHit(viewer, angle, maxDist, clouds)
+  if not clouds then return maxDist end
+  local cx, cy = math.cos(angle), math.sin(angle)
+  local best = maxDist
+  for _, cloud in ipairs(clouds.list) do
+    for _, puff in ipairs(cloud.puffs) do
+      local px = cloud.x + puff.dx - viewer.x
+      local py = cloud.y + puff.dy - viewer.y
+      local t = px * cx + py * cy
+      if t > 0 and t < best then
+        local d2 = px * px + py * py - t * t
+        local rr = puff.r * puff.r
+        if d2 <= rr then
+          local hit = t - math.sqrt(rr - d2)
+          if hit >= 0 and hit < best then best = hit end
+        end
+      end
+    end
+  end
+  return best
+end
+
+function Vision.outline(viewer, clouds, segments)
+  segments = segments or 96
   local pts = {}
+  local insideCloud = clouds and Clouds.pointInside(clouds, viewer.x, viewer.y)
   for i = 0, segments - 1 do
     local a = -math.pi + (i / segments) * math.pi * 2
     local worldAngle = viewer.angle + a
     local r = Vision.rangeAt(viewer.angle, worldAngle)
+    if insideCloud then
+      r = 0
+    else
+      r = firstCloudHit(viewer, worldAngle, r, clouds)
+    end
     pts[#pts + 1] = viewer.x + math.cos(worldAngle) * r
     pts[#pts + 1] = viewer.y + math.sin(worldAngle) * r
   end

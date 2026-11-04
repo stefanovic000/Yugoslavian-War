@@ -674,7 +674,7 @@ end
 function Solo:draw()
   self:drawSky()
   self:drawWorld()
-  if self.player.alive then VisionOverlay.draw(self.player, self.camera) end
+  if self.player.alive then VisionOverlay.draw(self.player, self.camera, self.sim.clouds) end
   self:drawHud()
   if self.paused then
     self:drawPause()

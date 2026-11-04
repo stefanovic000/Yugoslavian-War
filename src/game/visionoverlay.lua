@@ -16,11 +16,11 @@ local function ensureMask()
   end
 end
 
-function VisionOverlay.draw(viewer, camera)
+function VisionOverlay.draw(viewer, camera, clouds)
   if not viewer or not camera then return end
   ensureMask()
   local scale = C.WORLD.scale
-  local world = Vision.outline(viewer, 64)
+  local world = Vision.outline(viewer, clouds, 96)
   local pts = {}
   for i = 1, #world, 2 do
     pts[#pts + 1] = (world[i] - camera.x) * scale
@@ -33,7 +33,7 @@ function VisionOverlay.draw(viewer, camera)
   love.graphics.setCanvas(mask)
   love.graphics.clear(0, 0, 0, 0)
   love.graphics.setBlendMode("alpha")
-  love.graphics.setColor(0.012, 0.022, 0.030, 0.12)
+  love.graphics.setColor(0.012, 0.022, 0.030, 0.09)
   love.graphics.rectangle("fill", 0, 0, W, H)
   love.graphics.setBlendMode("replace")
   love.graphics.setColor(0, 0, 0, 0)
@@ -43,9 +43,6 @@ function VisionOverlay.draw(viewer, camera)
 
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(mask, 0, 0)
-  love.graphics.setColor(0.58, 0.66, 0.58, 0.10)
-  love.graphics.setLineWidth(1)
-  love.graphics.polygon("line", pts)
 end
 
 return VisionOverlay

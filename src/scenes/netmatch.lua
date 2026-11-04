@@ -983,7 +983,7 @@ function NetMatch:draw()
   Sky.draw()
   self:drawWorld()
   if self.localPlane and self.localPlane.alive and not self.spectator then
-    VisionOverlay.draw(self.localPlane, self.camera)
+    VisionOverlay.draw(self.localPlane, self.camera, self.clouds)
   end
   self:drawHud()
   if self.leavePrompt then self:drawLeavePrompt() end
