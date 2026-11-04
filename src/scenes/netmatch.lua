@@ -861,6 +861,13 @@ function NetMatch:drawHud()
     love.graphics.printf(target, 300, 14, 104, "right")
   end
 
+  local rttMs = math.floor((self.client.rtt or 0) * 1000 + 0.5)
+  if rttMs > 0 then
+    UI.set(rttMs < 80 and UI.C.green or (rttMs < 160 and UI.C.orange or UI.C.red))
+    love.graphics.setFont(UI.font(7, true))
+    love.graphics.print(string.format("PING %dMS", rttMs), 190, 10)
+  end
+
   -- local hull
   if p and not self.spectator then
     UI.panel(8, 8, 176, 54, { color = { 0.04, 0.06, 0.05, 0.72 }, border = UI.C.ink3 })

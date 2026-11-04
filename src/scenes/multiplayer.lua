@@ -595,6 +595,12 @@ function Multiplayer:drawLobby()
 
   UI.small("Y READY   /   LEFT RIGHT AIRCRAFT   /   O ROOM   /   ESC LEAVE",
     36, 338, UI.C.cream2, "left", 560)
+  local rttMs = math.floor((self.client.rtt or 0) * 1000 + 0.5)
+  if rttMs > 0 then
+    UI.set(rttMs < 80 and UI.C.green or (rttMs < 160 and UI.C.orange or UI.C.red))
+    love.graphics.setFont(UI.font(7, true))
+    love.graphics.printf(string.format("PING %dMS", rttMs), 36, 338, 560, "right")
+  end
 
   if self.roomSettingsOpen then self:drawRoomSettings() end
 end
