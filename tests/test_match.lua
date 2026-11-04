@@ -219,4 +219,21 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "three-player FFA centre spawn stays nose-up after side swap",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A" },
+      { id = 2, name = "B" },
+      { id = 3, name = "C" },
+    }, 45)
+    m:startRound(4, true)
+    local middle = m.sim:getPlane(3)
+    assert(middle, "middle plane missing")
+    assert(math.abs(middle.angle + math.pi / 2) < 0.01,
+      "middle spawn points down: " .. tostring(middle.angle))
+    assert(middle.y < C.WORLD.groundY - 40, "middle spawn is on the deck")
+  end,
+}
+
 return cases

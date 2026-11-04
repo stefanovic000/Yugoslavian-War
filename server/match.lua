@@ -127,8 +127,11 @@ function Match:slotFor(id, index)
     }
   end
   local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
-  local slot = slots[((index - 1) % #slots) + 1]
-  if swapped then
+  local slotIndex = ((index - 1) % #slots) + 1
+  local slot = slots[slotIndex]
+  -- The 3-player centre spawn points up from the deck. Side swapping is a
+  -- left/right rotation, not a reason to turn that aircraft nose-down.
+  if swapped and not (#self.players == 3 and slotIndex == 3) then
     return { x = C.WORLD.w - slot.x, y = slot.y, angle = slot.angle + math.pi }
   end
   return slot
