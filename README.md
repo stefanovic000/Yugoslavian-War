@@ -45,7 +45,7 @@ procedurally. There are no large art packs and no runtime downloads.
 
 ### Multiplayer match
 
-![Multiplayer match over the Adriatic](docs/preview-vision-net.png)
+![Multiplayer match over the Adriatic](docs/preview-match.png)
 
 ### Room lobby
 
