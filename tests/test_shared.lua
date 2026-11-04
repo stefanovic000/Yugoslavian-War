@@ -223,6 +223,29 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
+  name = "lag compensation checks the shooter's delayed target pose",
+  fn = function()
+    local sim = newSim(25)
+    local target = sim:addPlane({ id = 1, x = 500, y = 100, angle = 0, invuln = 0 })
+    local shooter = sim:addPlane({ id = 2, x = 200, y = 180, angle = 0, invuln = 0 })
+    sim.time = 1.0
+    target.history = {
+      { t = 0.90, x = 320, y = 167, a = 0 },
+      { t = 1.00, x = 360, y = 167, a = 0 },
+    }
+    sim.lagByOwner[2] = 0.10
+    sim.bullets[1] = {
+      owner = 2, team = 2, px = 300, py = 167, x = 340, y = 167,
+      vx = 540, vy = 0, life = 1, damage = 8, radius = 1.8,
+      firstStep = false, dead = false,
+    }
+    sim:step({ [1] = { throttle = 0.5 }, [2] = { throttle = 0.5 } }, C.TICK)
+    assert(target.hp < target.maxHp, "delayed target pose was not checked")
+    assert(shooter.alive)
+  end,
+}
+
+cases[#cases + 1] = {
   name = "relative sweep catches a target and bullet crossing paths",
   fn = function()
     local sim = newSim(23)

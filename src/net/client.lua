@@ -32,6 +32,8 @@ function Client.new()
     errorMessage = nil,
     lastRecv = 0,
     lastPing = 0,
+    pingAt = nil,
+    rtt = 0,
     connectingAt = 0,
     serverVersion = nil,
   }, Client)
@@ -139,6 +141,9 @@ function Client:read()
           self.selfId = msg.selfId
           self.name = msg.name or self.name
           self.serverVersion = msg.version
+        elseif msg.type == "pong" and self.pingAt then
+          self.rtt = math.max(0, math.min(0.3, now() - self.pingAt))
+          self.pingAt = nil
         end
         self.messages[#self.messages + 1] = msg
       end
@@ -182,6 +187,7 @@ function Client:update(dt)
   self.lastPing = self.lastPing or 0
   if t - self.lastPing > 2 then
     self.lastPing = t
+    self.pingAt = t
     self:send({ type = "ping", t = t })
   end
 

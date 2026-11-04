@@ -28,6 +28,7 @@ function Sim.new(opts)
     nextBulletId = 1,
     events = {},
     teamMode = opts.teamMode == true,
+    lagByOwner = {},
   }, Sim)
 end
 
@@ -37,9 +38,32 @@ function Sim:addPlane(opts)
   plane.team = opts.team or plane.id
   plane.x = M.clamp(plane.x, C.WORLD.wallLeft + plane.radius, C.WORLD.wallRight - plane.radius)
   plane.y = M.clamp(plane.y, plane.radius, C.WORLD.groundY - plane.radius)
+  plane.history = { { t = self.time, x = plane.x, y = plane.y, a = plane.angle } }
   self.planes[plane.id] = plane
   self.planeOrder[#self.planeOrder + 1] = plane.id
   return plane
+end
+
+function Sim:poseAt(plane, targetTime)
+  local history = plane.history
+  if not history or #history == 0 then
+    return { x = plane.x, y = plane.y, a = plane.angle }
+  end
+  local prev = history[1]
+  local next = history[#history]
+  for _, h in ipairs(history) do
+    if h.t <= targetTime then prev = h end
+    if h.t >= targetTime then next = h; break end
+  end
+  if prev == next or next.t <= prev.t then
+    return { x = prev.x, y = prev.y, a = prev.a }
+  end
+  local k = M.clamp((targetTime - prev.t) / (next.t - prev.t), 0, 1)
+  return {
+    x = prev.x + (next.x - prev.x) * k,
+    y = prev.y + (next.y - prev.y) * k,
+    a = prev.a + M.angleDiff(prev.a, next.a) * k,
+  }
 end
 
 function Sim:removePlane(id)
@@ -154,6 +178,12 @@ function Sim:step(inputs, dt)
       else
         self:tryFire(plane, input)
       end
+
+      plane.history = plane.history or {}
+      plane.history[#plane.history + 1] = {
+        t = self.time, x = plane.x, y = plane.y, a = plane.angle,
+      }
+      if #plane.history > 45 then table.remove(plane.history, 1) end
     end
   end
 
@@ -185,6 +215,14 @@ function Sim:step(inputs, dt)
           and not (self.teamMode and owner and owner.team == plane.team) then
           local part = Combat.bulletHitsMovingPlane(b, plane,
             plane.prevX, plane.prevY, plane.prevAngle, self.w, self.h)
+          local lag = self.lagByOwner[b.owner] or 0
+          if not part and lag > 0.02 then
+            -- Match the shooter's view: remote aircraft are rendered slightly
+            -- behind the authoritative position by interpolation and RTT.
+            local pose = self:poseAt(plane, self.time - lag)
+            part = Combat.bulletHitsPlaneAt(b, plane, pose.x, pose.y, pose.a,
+              self.w, self.h)
+          end
           if part then
             local applied = Flight.applyDamage(plane, part, b.damage)
             events[#events + 1] = {

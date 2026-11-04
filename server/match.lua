@@ -213,6 +213,7 @@ function Match:queueInput(id, msg)
     pitch = math.max(-1, math.min(1, tonumber(msg.pitch) or 0)),
     fire = msg.fire == true,
   }
+  st.rtt = math.max(0, math.min(0.25, (tonumber(msg.rtt) or 0) / 1000))
   if #st.queue >= 8 then table.remove(st.queue, 1) end
   st.queue[#st.queue + 1] = input
 end
@@ -337,6 +338,14 @@ function Match:stepRound(dt)
       st.last = input
     end
     inputs[id] = input
+  end
+
+  self.sim.lagByOwner = {}
+  for _, id in ipairs(self.players) do
+    if not self.bots[id] then
+      local rtt = self.inputs[id].rtt or 0.08
+      self.sim.lagByOwner[id] = math.max(0, math.min(0.16, rtt * 0.5 + 0.03))
+    end
   end
 
   local events = self.sim:step(inputs, dt)

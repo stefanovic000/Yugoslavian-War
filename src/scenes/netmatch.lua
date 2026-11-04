@@ -692,6 +692,7 @@ function NetMatch:fixedUpdate(dt)
       self.client:send({
         type = "input", seq = packaged.seq, throttle = packaged.throttle,
         pitch = packaged.pitch, fire = packaged.fire,
+        rtt = math.floor((self.client.rtt or 0.08) * 1000),
       })
     end
   end
