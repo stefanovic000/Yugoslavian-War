@@ -464,6 +464,7 @@ function Match:buildSnapshot()
   local bullets = {}
   for _, b in ipairs(self.sim.bullets) do
     bullets[#bullets + 1] = {
+      id = b.id,
       x = r2(b.x), y = r2(b.y), vx = r2(b.vx), vy = r2(b.vy), owner = b.owner,
       team = b.team,
     }

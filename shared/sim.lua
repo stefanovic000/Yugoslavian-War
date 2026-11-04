@@ -113,7 +113,10 @@ function Sim:spawnBullet(plane, aimAngle)
   }
   self.nextBulletId = self.nextBulletId + 1
   self.bullets[#self.bullets + 1] = bullet
-  self.events[#self.events + 1] = { type = "shot", owner = plane.id, x = x, y = y, angle = angle }
+  self.events[#self.events + 1] = {
+    type = "shot", id = bullet.id, owner = plane.id,
+    x = x, y = y, angle = angle,
+  }
   return bullet
 end
 
@@ -235,7 +238,7 @@ function Sim:step(inputs, dt)
             local applied = Flight.applyDamage(plane, part, b.damage)
             events[#events + 1] = {
               type = "hit", owner = b.owner, victim = plane.id, part = part,
-              x = b.x, y = b.y, damage = b.damage,
+              x = b.x, y = b.y, damage = b.damage, bulletId = b.id,
             }
             if applied and not plane.alive then
               events[#events + 1] = {

@@ -223,6 +223,27 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
+  name = "shot and hit events carry bullet ids",
+  fn = function()
+    local sim = newSim(28)
+    local target = sim:addPlane({ id = 1, x = 320, y = 180, angle = 0, invuln = 0 })
+    local shooter = sim:addPlane({ id = 2, x = 250, y = 180, angle = 0, invuln = 0 })
+    sim:tryFire(shooter, { fire = true })
+    local shot
+    for _, e in ipairs(sim.events) do if e.type == "shot" then shot = e end end
+    assert(shot and shot.id, "shot event has no bullet id")
+    local bullet = sim.bullets[#sim.bullets]
+    target.invuln = 0
+    local hit
+    for _ = 1, 40 do
+      sim:step({}, C.TICK)
+      for _, e in ipairs(sim.events) do if e.type == "hit" then hit = e end end
+    end
+    assert(hit and hit.bulletId == bullet.id, "hit event lost its bullet id")
+  end,
+}
+
+cases[#cases + 1] = {
   name = "network aim follows the client's rendered nose",
   fn = function()
     local sim = newSim(27)

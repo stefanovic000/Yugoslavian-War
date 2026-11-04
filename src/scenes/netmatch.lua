@@ -226,9 +226,28 @@ end
 function NetMatch:processEvents(events)
   for _, e in ipairs(events or {}) do
     if e.type == "shot" then
-      -- Own shots get a locally predicted muzzle flash so the flash, tracer
-      -- and nose agree even when the authoritative snapshot is in flight.
-      if e.owner ~= self.selfId then
+      if e.owner == self.selfId then
+        local best = nil
+        local confirmWindow = (self.client.rtt or 0.08) + 0.25
+        for _, b in ipairs(self.localBullets) do
+          if not b.serverId and (self.uiTime - (b.born or 0)) < confirmWindow then
+            if not best or (b.born or 0) < (best.born or 0) then best = b end
+          end
+        end
+        if best then
+          best.serverId = e.id
+          best.vx = math.cos(e.angle) * C.BULLET.speed
+          best.vy = math.sin(e.angle) * C.BULLET.speed
+        else
+          self.localBullets[#self.localBullets + 1] = {
+            x = e.x, y = e.y, px = e.x, py = e.y,
+            vx = math.cos(e.angle) * C.BULLET.speed,
+            vy = math.sin(e.angle) * C.BULLET.speed,
+            life = C.BULLET.life, born = self.uiTime,
+            team = self.localTeam or 1, serverId = e.id,
+          }
+        end
+      else
         if self.localPlane and self.localPlane.alive then
           local shooter = self.visuals[e.owner]
           if shooter then
@@ -251,14 +270,24 @@ function NetMatch:processEvents(events)
       if e.owner == self.selfId then
         self.hitMarker = 0.18
         self.hitX, self.hitY = e.x, e.y
-        -- The server owns damage. Once it confirms a hit, retire the matching
-        -- predicted tracer so it does not visibly continue through the target.
-        local best, bestDist = nil, 90 * 90
-        for i, b in ipairs(self.localBullets) do
-          local d = (b.x - e.x) ^ 2 + (b.y - e.y) ^ 2
-          if d < bestDist then best, bestDist = i, d end
+        local removed = false
+        if e.bulletId then
+          for i = #self.localBullets, 1, -1 do
+            if self.localBullets[i].serverId == e.bulletId then
+              table.remove(self.localBullets, i)
+              removed = true
+              break
+            end
+          end
         end
-        if best then table.remove(self.localBullets, best) end
+        if not removed then
+          local best, bestDist = nil, 90 * 90
+          for i, b in ipairs(self.localBullets) do
+            local d = (b.x - e.x) ^ 2 + (b.y - e.y) ^ 2
+            if d < bestDist then best, bestDist = i, d end
+          end
+          if best then table.remove(self.localBullets, best) end
+        end
       end
       if e.victim == self.selfId then
         self.flash = 0.36
@@ -641,11 +670,36 @@ function NetMatch:updateLocalBullets(dt, input)
     and (p.jammed or 0) <= 0 and (p.heat or 0) < 1 and self.localFireTimer <= 0 then
     self.localFireTimer = Flight.fireInterval(p)
     local x, y = Combat.toWorld(p, 18, 0)
+    self.localBullets[#self.localBullets + 1] = {
+      x = x, y = y, px = x, py = y,
+      vx = math.cos(p.angle) * C.BULLET.speed,
+      vy = math.sin(p.angle) * C.BULLET.speed,
+      life = C.BULLET.life, born = self.uiTime, team = self.localTeam or 1,
+      serverId = nil,
+    }
     self.particles:muzzle(x, y, p.angle, { 0.55, 0.95, 0.95 })
     p.heat = math.min(1, (p.heat or 0) + C.GUN.heatPerShot)
     if p.heat >= 1 then p.jammed = C.GUN.jamTime end
     Audio.play("shot", 0.18)
     self.shake = math.max(self.shake, 0.35)
+  end
+
+  local i = 1
+  while i <= #self.localBullets do
+    local b = self.localBullets[i]
+    b.px, b.py = b.x, b.y
+    b.x = b.x + b.vx * dt
+    b.y = b.y + b.vy * dt
+    b.life = b.life - dt
+    local stale = not b.serverId
+      and (self.uiTime - (b.born or 0)) > ((self.client.rtt or 0.08) + 0.25)
+    if b.life <= 0 or stale or b.x < C.WORLD.wallLeft or b.x > C.WORLD.wallRight
+      or b.y < -10 or b.y > C.WORLD.groundY then
+      self.localBullets[i] = self.localBullets[#self.localBullets]
+      self.localBullets[#self.localBullets] = nil
+    else
+      i = i + 1
+    end
   end
 end
 
@@ -705,20 +759,29 @@ function NetMatch:drawWorld()
   local age = math.min(0.15, love.timer.getTime() - self.snapRecvAt)
   if snap then
     for _, b in ipairs(snap.bullets or {}) do
-      local bullet = {
-        x = b.x + b.vx * age, y = b.y + b.vy * age,
-        vx = b.vx, vy = b.vy, owner = b.owner,
-        team = b.team or 2,
-      }
-      if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
-        and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
-        Sprites.drawBullet(bullet)
+      if b.owner ~= self.selfId then
+        local bullet = {
+          x = b.x + b.vx * age, y = b.y + b.vy * age,
+          vx = b.vx, vy = b.vy, owner = b.owner,
+          team = b.team or 2,
+        }
+        if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
+          and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
+          Sprites.drawBullet(bullet)
+        end
       end
     end
 
-    -- All tracers, including our own, are authoritative server bullets. Local
-    -- predicted tracers used different spread/timing and could visibly pass
-    -- through a target without existing on the server.
+    -- Own tracer: predicted immediately, then reconciled by shot ID to the
+    -- authoritative bullet. It is removed on the server's confirmed hit.
+    for _, b in ipairs(self.localBullets) do
+      if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
+        and b.y > -10 and b.y < C.WORLD.groundY
+        and not Clouds.pointInside(self.clouds, b.x, b.y) then
+        Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy,
+          team = b.team or self.localTeam or 1 })
+      end
+    end
     for _, p in ipairs(snap.pickups or {}) do
       local pickup = { x = p.x, y = p.y + p.vy * age, phase = 0 }
       Sprites.drawPickup(pickup, self.uiTime)
