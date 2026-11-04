@@ -862,14 +862,22 @@ function NetMatch:drawHud()
     return a.id < b.id
   end)
   love.graphics.setFont(UI.font(7))
+  local scoreW = 96
+  for _, r in ipairs(rows) do
+    local text = string.format("%s  %dW/%dK  R%d", r.name, r.wins, r.kills, r.roundKills or 0)
+    scoreW = math.max(scoreW, UI.font(7):getWidth(text) + 16)
+  end
+  scoreW = math.min(230, scoreW)
+  local scoreX = 636 - scoreW
   UI.set(UI.C.ink, 0.92)
-  love.graphics.rectangle("fill", 406, 60, 230, 52)
+  love.graphics.rectangle("fill", scoreX, 60, scoreW, 52)
   UI.set(UI.C.ink3)
-  love.graphics.rectangle("line", 406.5, 60.5, 229, 51)
+  love.graphics.rectangle("line", scoreX + 0.5, 60.5, scoreW - 1, 51)
   for i = 1, math.min(4, #rows) do
     local r = rows[i]
     UI.set(r.id == self.selfId and UI.C.orange or UI.C.cream2)
-    love.graphics.printf(string.format("%s  %dW/%dK  R%d", r.name, r.wins, r.kills, r.roundKills or 0), 412, 64 + (i - 1) * 11, 220, "right")
+    love.graphics.printf(string.format("%s  %dW/%dK  R%d", r.name, r.wins, r.kills, r.roundKills or 0),
+      scoreX + 7, 64 + (i - 1) * 11, scoreW - 13, "right")
   end
 
   -- spectator / death
