@@ -34,6 +34,7 @@ function Client.new()
     lastPing = 0,
     pingAt = nil,
     rtt = 0,
+    jitter = 0,
     connectingAt = 0,
     serverVersion = nil,
   }, Client)
@@ -142,7 +143,9 @@ function Client:read()
           self.name = msg.name or self.name
           self.serverVersion = msg.version
         elseif msg.type == "pong" and self.pingAt then
-          self.rtt = math.max(0, math.min(0.3, now() - self.pingAt))
+          local sample = math.max(0, math.min(0.3, now() - self.pingAt))
+          self.jitter = self.rtt > 0 and math.abs(sample - self.rtt) or 0
+          self.rtt = self.rtt > 0 and (self.rtt * 0.75 + sample * 0.25) or sample
           self.pingAt = nil
         end
         self.messages[#self.messages + 1] = msg

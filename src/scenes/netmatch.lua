@@ -640,36 +640,12 @@ function NetMatch:updateLocalBullets(dt, input)
     and (p.parts.guns or 0) > 0 and (p.ammo or 0) > 0
     and (p.jammed or 0) <= 0 and (p.heat or 0) < 1 and self.localFireTimer <= 0 then
     self.localFireTimer = Flight.fireInterval(p)
-    local a = p.angle + (love.math.random() - 0.5) * 2 * C.BULLET.spread
     local x, y = Combat.toWorld(p, 18, 0)
-    self.localBullets[#self.localBullets + 1] = {
-      x = x, y = y, px = x, py = y,
-      vx = math.cos(a) * C.BULLET.speed,
-      vy = math.sin(a) * C.BULLET.speed,
-      life = C.BULLET.life,
-      team = self.localTeam or 1,
-    }
-    self.particles:muzzle(x, y, a, { 0.55, 0.95, 0.95 })
+    self.particles:muzzle(x, y, p.angle, { 0.55, 0.95, 0.95 })
     p.heat = math.min(1, (p.heat or 0) + C.GUN.heatPerShot)
     if p.heat >= 1 then p.jammed = C.GUN.jamTime end
     Audio.play("shot", 0.18)
     self.shake = math.max(self.shake, 0.35)
-  end
-
-  local i = 1
-  while i <= #self.localBullets do
-    local b = self.localBullets[i]
-    b.px, b.py = b.x, b.y
-    b.x = b.x + b.vx * dt
-    b.y = b.y + b.vy * dt
-    b.life = b.life - dt
-    if b.life <= 0 or b.x < C.WORLD.wallLeft or b.x > C.WORLD.wallRight
-      or b.y < -10 or b.y > C.WORLD.groundY then
-      self.localBullets[i] = self.localBullets[#self.localBullets]
-      self.localBullets[#self.localBullets] = nil
-    else
-      i = i + 1
-    end
   end
 end
 
@@ -729,28 +705,20 @@ function NetMatch:drawWorld()
   local age = math.min(0.15, love.timer.getTime() - self.snapRecvAt)
   if snap then
     for _, b in ipairs(snap.bullets or {}) do
-      if b.owner ~= self.selfId then
-        local bullet = {
-          x = b.x + b.vx * age, y = b.y + b.vy * age,
-          vx = b.vx, vy = b.vy, owner = b.owner,
-          team = b.team or 2,
-        }
-        if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
-          and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
-          Sprites.drawBullet(bullet)
-        end
+      local bullet = {
+        x = b.x + b.vx * age, y = b.y + b.vy * age,
+        vx = b.vx, vy = b.vy, owner = b.owner,
+        team = b.team or 2,
+      }
+      if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
+        and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
+        Sprites.drawBullet(bullet)
       end
     end
 
-    -- Own tracers are derived from the predicted nose, so they leave the nose
-    -- even while turning and waiting for the next snapshot.
-    for _, b in ipairs(self.localBullets) do
-      if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
-        and b.y > -10 and b.y < C.WORLD.groundY
-        and not Clouds.pointInside(self.clouds, b.x, b.y) then
-        Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = b.team or self.localTeam or 1 })
-      end
-    end
+    -- All tracers, including our own, are authoritative server bullets. Local
+    -- predicted tracers used different spread/timing and could visibly pass
+    -- through a target without existing on the server.
     for _, p in ipairs(snap.pickups or {}) do
       local pickup = { x = p.x, y = p.y + p.vy * age, phase = 0 }
       Sprites.drawPickup(pickup, self.uiTime)
