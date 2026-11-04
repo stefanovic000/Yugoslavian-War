@@ -196,6 +196,32 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
+  name = "a close-range shot cannot spawn past its target",
+  fn = function()
+    local sim = newSim(21)
+    local target = sim:addPlane({ id = 1, x = 316, y = 180, angle = 0, invuln = 0 })
+    local shooter = sim:addPlane({ id = 2, x = 300, y = 180, angle = 0, invuln = 0 })
+    assert(sim:tryFire(shooter, { fire = true }), "shooter did not fire")
+    sim:step({}, C.TICK)
+    assert(target.hp < target.maxHp, "muzzle offset skipped a close target")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "a swept shot catches a target between the endpoints",
+  fn = function()
+    local sim = newSim(22)
+    local target = sim:addPlane({ id = 1, x = 320, y = 180, angle = 0, invuln = 0 })
+    local bullet = {
+      owner = 2, px = 295, py = 180, x = 345, y = 180,
+      vx = 540, vy = 0,
+    }
+    local part = Combat.bulletHitsPlane(bullet, target, sim.w, sim.h)
+    assert(part ~= nil, "fast segment skipped the hitbox")
+  end,
+}
+
+cases[#cases + 1] = {
   name = "bullets damage and kill",
   fn = function()
     local sim = newSim(8)

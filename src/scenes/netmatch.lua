@@ -251,6 +251,14 @@ function NetMatch:processEvents(events)
       if e.owner == self.selfId then
         self.hitMarker = 0.18
         self.hitX, self.hitY = e.x, e.y
+        -- The server owns damage. Once it confirms a hit, retire the matching
+        -- predicted tracer so it does not visibly continue through the target.
+        local best, bestDist = nil, 90 * 90
+        for i, b in ipairs(self.localBullets) do
+          local d = (b.x - e.x) ^ 2 + (b.y - e.y) ^ 2
+          if d < bestDist then best, bestDist = i, d end
+        end
+        if best then table.remove(self.localBullets, best) end
       end
       if e.victim == self.selfId then
         self.flash = 0.36

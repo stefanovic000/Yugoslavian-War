@@ -73,6 +73,9 @@ function Sim:spawnBullet(plane)
     y = y,
     px = x,
     py = y,
+    sx = plane.x,
+    sy = plane.y,
+    firstStep = true,
     vx = fx * C.BULLET.speed,
     vy = fy * C.BULLET.speed,
     life = C.BULLET.life,
@@ -157,7 +160,14 @@ function Sim:step(inputs, dt)
   local i = 1
   while i <= #self.bullets do
     local b = self.bullets[i]
-    b.px, b.py = b.x, b.y
+    if b.firstStep then
+      -- The muzzle is ahead of the airframe. Sweep the first shot from the
+      -- aircraft centre so a close target inside the muzzle offset is not skipped.
+      b.px, b.py = b.sx or b.x, b.sy or b.y
+      b.firstStep = nil
+    else
+      b.px, b.py = b.x, b.y
+    end
     b.x = b.x + b.vx * dt
     b.y = b.y + b.vy * dt
     b.life = b.life - dt

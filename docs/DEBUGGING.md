@@ -1,4 +1,4 @@
-﻿# Debugging guide
+# Debugging guide
 
 The game is built so problems are visible without adding a `print`. The debug
 layers are independent of gameplay and work in solo and online matches.
@@ -253,7 +253,7 @@ uncaught error instead of hanging on the crash screen.
 test.bat
 ```
 
-49 tests cover:
+51 tests cover:
 
 - utility math/string wrapping;
 - class inheritance;

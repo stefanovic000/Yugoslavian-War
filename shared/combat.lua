@@ -66,7 +66,11 @@ function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
 
   local cx = plane.x
   local cy = plane.y
-  if math.abs(bullet.x - cx) < 40 and math.abs(bullet.y - cy) < 40 then
+  local minX = math.min(bullet.px, bullet.x) - 30
+  local maxX = math.max(bullet.px, bullet.x) + 30
+  local minY = math.min(bullet.py, bullet.y) - 30
+  local maxY = math.max(bullet.py, bullet.y) + 30
+  if cx >= minX and cx <= maxX and cy >= minY and cy <= maxY then
     local dx1, dy1 = bullet.px - cx, bullet.py - cy
     local dx2, dy2 = bullet.x - cx, bullet.y - cy
     local lx1, ly1 = worldToLocal(plane.angle, dx1, dy1)
