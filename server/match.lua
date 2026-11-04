@@ -38,6 +38,7 @@ function Match.new(players, seed)
   }, Match)
 
   Clouds.avoidPoints(m.sim.clouds, SLOTS, 80)
+  Clouds.avoidPoints(m.sim.clouds, C.SPAWNS3, 80)
 
   for i, p in ipairs(players) do
     m:addPlayer(p.id, p.name, i)
@@ -79,7 +80,8 @@ function Match:startRound(number)
   self.respawns = {}
 
   for i, id in ipairs(self.players) do
-    local slot = SLOTS[((i - 1) % #SLOTS) + 1]
+    local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
+    local slot = slots[((i - 1) % #slots) + 1]
     local plane = self.sim:getPlane(id)
     if not plane then
       plane = self.sim:addPlane({
@@ -169,7 +171,8 @@ function Match:respawnPlane(id)
     if pid == id then index = i; break end
   end
   if not index then return end
-  local slot = SLOTS[((index - 1) % #SLOTS) + 1]
+  local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
+  local slot = slots[((index - 1) % #slots) + 1]
   Flight.reset(plane, slot.x, slot.y, slot.angle)
   plane.throttle = 0.7
   plane.invuln = 2

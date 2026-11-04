@@ -227,7 +227,7 @@ function Flight.step(plane, input, dt)
     plane.vy = plane.vy * k
   end
 
-  plane.x = M.wrap(plane.x + plane.vx * dt, C.WORLD.w)
+  plane.x = plane.x + plane.vx * dt
   plane.y = plane.y + plane.vy * dt
   if plane.y < plane.radius then
     plane.y = plane.radius

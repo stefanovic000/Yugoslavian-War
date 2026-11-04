@@ -128,14 +128,19 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
-  name = "horizontal wrap",
+  name = "side walls stop and crash the plane",
   fn = function()
     local sim = newSim(4)
-    local p = sim:addPlane({ id = 1, x = 5, y = 180, angle = math.pi, speed = 170 })
+    local p = sim:addPlane({ id = 1, x = 60, y = 180, angle = math.pi, speed = 170 })
+    local crash = false
     for _ = 1, 60 do
-      sim:step({ [1] = { throttle = 0.6, pitch = 0 } }, C.TICK)
+      for _, e in ipairs(sim:step({ [1] = { throttle = 0.6, pitch = 0 } }, C.TICK)) do
+        if e.type == "crash" and e.reason == "wall" and e.victim == p.id then crash = true end
+      end
     end
-    assert(p.x > 300, "plane did not wrap across the left edge: " .. p.x)
+    assert(not p.alive, "plane did not crash into the side wall")
+    assert(crash, "wall crash event missing")
+    assert(p.x >= C.WORLD.wallLeft + C.PLANE.radius, "plane crossed the side wall")
   end,
 }
 
@@ -371,6 +376,22 @@ cases[#cases + 1] = {
     for _ = 1, 200 do sim:step({ [1] = { throttle = 0.7, pitch = 0, fire = false } }, C.TICK) end
     assert((p.jammed or 0) == 0 and p.heat < 1, "guns did not recover")
     assert(Flight.canFire(p), "guns did not become fireable again")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "camera clamps smoothly to the walled world",
+  fn = function()
+    local Camera = require("src.game.camera")
+    local cam = Camera.new()
+    Camera.follow(cam, 500, 260, 1)
+    assert(cam.x >= 0 and cam.x <= C.WORLD.w - C.WORLD.viewW, "camera x outside world")
+    assert(cam.y >= 0 and cam.y <= C.WORLD.h - C.WORLD.viewH, "camera y outside world")
+    Camera.follow(cam, 0, 0, 1)
+    assert(math.abs(cam.x) < 0.5 and math.abs(cam.y) < 0.5, "camera did not clamp at the left/top edge")
+    Camera.follow(cam, C.WORLD.w, C.WORLD.h, 1)
+    assert(math.abs(cam.x - (C.WORLD.w - C.WORLD.viewW)) < 0.5, "camera did not clamp at the right edge")
+    assert(math.abs(cam.y - (C.WORLD.h - C.WORLD.viewH)) < 0.5, "camera did not clamp at the bottom edge")
   end,
 }
 

@@ -105,4 +105,17 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "three players use the triangle spawn layout",
+  fn = function()
+    local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" }, { id = 3, name = "C" } }, 22)
+    for i, id in ipairs(m.players) do
+      local p = m.sim:getPlane(id)
+      local slot = C.SPAWNS3[i]
+      assert(math.abs(p.x - slot.x) < 0.1 and math.abs(p.y - slot.y) < 0.1,
+        "three-player spawn does not match triangle slot " .. i)
+    end
+  end,
+}
+
 return cases

@@ -29,7 +29,7 @@ function AI.input(plane, target, sim, state, dt)
   local dist = 9999
 
   if target and target.alive then
-    dist = math.sqrt(M.wrappedDist2(plane.x, plane.y, target.x, target.y, sim.w, sim.h))
+    dist = M.dist(plane.x, plane.y, target.x, target.y)
     visible = not Clouds.segmentBlocked(sim.clouds, plane.x, plane.y, target.x, target.y)
       and not Clouds.pointInside(sim.clouds, target.x, target.y)
     if visible then
@@ -42,6 +42,10 @@ function AI.input(plane, target, sim, state, dt)
   local throttle = 0.78
   local fire = false
   local groundClearance = C.WORLD.groundY - plane.y
+  local wallClearance = math.min(
+    plane.x - C.WORLD.wallLeft,
+    C.WORLD.wallRight - plane.x
+  )
 
   if groundClearance < 110 then
     -- Pull up with priority over chasing. A demo plane should never plow into
@@ -49,16 +53,21 @@ function AI.input(plane, target, sim, state, dt)
     local noseX = plane.x + math.cos(plane.angle) * 120
     desired = M.angleTo(plane.x, plane.y, noseX, C.WORLD.groundY - 170)
     throttle = 1
+  elseif wallClearance < 120 then
+    -- Old buildings at the sides are solid; steer back toward open air.
+    local dir = (plane.x < C.WORLD.w * 0.5) and 1 or -1
+    desired = M.angleTo(plane.x, plane.y, plane.x + dir * 160, plane.y - 90)
+    throttle = 1
   elseif speed < 100 or plane.stalling then
     -- Energy recovery beats everything else. Dive slightly and run full power.
     desired = 0.45
     throttle = 1
   elseif visible then
-    local targetX = plane.x + M.delta(plane.x, target.x, sim.w)
-    local targetY = plane.y + M.delta(plane.y, target.y, sim.h)
+    local targetX = target.x
+    local targetY = target.y
     local lead = 0.22
-    local tx = M.wrap(targetX + target.vx * lead, sim.w)
-    local ty = M.wrap(targetY + target.vy * lead, sim.h)
+    local tx = targetX + target.vx * lead
+    local ty = targetY + target.vy * lead
     desired = M.angleTo(plane.x, plane.y, tx, ty)
 
     if dist < 80 then
@@ -78,7 +87,7 @@ function AI.input(plane, target, sim, state, dt)
       state.lastSeenY = nil
     else
       if state.patrolTimer <= 0 then
-        state.patrolX = sim.rng:range(120, sim.w - 120)
+        state.patrolX = sim.rng:range(C.WORLD.wallLeft + 120, C.WORLD.wallRight - 120)
         local maxPatrolY = math.min(sim.h - 80, C.WORLD.groundY - 120)
         state.patrolY = sim.rng:range(80, maxPatrolY)
         state.patrolTimer = sim.rng:range(3, 6)

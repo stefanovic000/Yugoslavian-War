@@ -24,6 +24,7 @@ procedurally. There are no large art packs and no runtime downloads.
 - **3-second respawns** for every pilot, solo and online.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
+- **Camera-scrolled walled arena**: 1000×520 world, old-town building walls, no wrap, smooth clamped camera and extra vertical space to flank.
 - **Low ground** at the bottom of the arena. Touch it and the aircraft explodes and respawns.
 - Aircraft are **5% smaller** than the original silhouette, with a matching smaller collision radius.
 - **Cloud cover** that actually hides aircraft. Cloud positions and per-plane visibility are server-authoritative.
@@ -146,10 +147,12 @@ configured for TCP 7777.
 - **Damage:** 120 hull, with separate engine, wing, tail and gun health.
 - **Clouds:** server-generated puffs; the server sends their positions and each
   plane's `hidden` flag in snapshots. The client never decides visibility alone.
-- **Ground:** a low strip at `y = 375`; contact is a crash, not a kill. The
+- **Ground:** a low strip at `y = 445`; contact is a crash, not a kill. The
   aircraft explodes and starts a respawn.
-- **Arena:** 800×450 world units rendered at 0.8× into a 640×360 pixel viewport.
-  Horizontal wrap, bounded vertical space, fixed 60 Hz simulation.
+- **Arena:** 1000×520 world units viewed through a smooth 800×450 camera at
+  0.8× into a 640×360 pixel viewport. Solid old-town building walls at the
+  sides; no horizontal wrap; fixed 60 Hz simulation.
+- **Three-player FFA:** a triangular three-spawn layout is used automatically.
 
 ## Development
 
@@ -174,7 +177,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 38 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 40 unit tests (flight, hitboxes, clouds, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 

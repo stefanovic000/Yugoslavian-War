@@ -11,6 +11,8 @@ local Settings = require("src.game.settings")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
+local Walls = require("src.game.walls")
+local Camera = require("src.game.camera")
 local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
@@ -62,6 +64,7 @@ function NetMatch:enter(client, startMsg)
   self.localPlane = nil
   self.localHidden = false
   self.wasStalling = false
+  self.camera = Camera.new()
   self.localBullets = {}
   self.localFireTimer = 0
   self.spectator = startMsg.spectator == true
@@ -103,6 +106,7 @@ function NetMatch:applyStart(msg)
   self.localFireTimer = 0
   self.clouds = Clouds.new(self.seed)
   Clouds.avoidPoints(self.clouds, C.SPAWNS, 80)
+  Clouds.avoidPoints(self.clouds, C.SPAWNS3, 80)
   self.farClouds = Clouds.new(self.seed + 7, 7, { cluster = false })
   if _G.DOGFIGHT and _G.DOGFIGHT.opts and _G.DOGFIGHT.opts.noclouds then
     self.clouds.list = {}
@@ -118,6 +122,7 @@ function NetMatch:applyStart(msg)
   self.localPlane = nil
   self.localHidden = false
   self.wasStalling = false
+  self.camera = Camera.new()
   self.history = {}
   self.seq = 0
   self.ack = 0
@@ -379,8 +384,8 @@ function NetMatch:updateVisuals(dt)
     local v = self.visuals[id]
     if v then
       local k = 1 - math.exp(-15 * dt)
-      v.x = v.x + M.delta(v.x, target.x, W) * k
-      v.y = v.y + M.delta(v.y, target.y, H) * k
+      v.x = v.x + (target.x - v.x) * k
+      v.y = v.y + (target.y - v.y) * k
       v.angle = v.angle + M.angleDiff(v.angle, target.a) * k
       v.hp = target.hp
       v.alive = target.alive
@@ -397,6 +402,24 @@ function NetMatch:updateVisuals(dt)
         self.localPlane.hp, self.localPlane.alive, self.localPlane.parts, self.localPlane.ammo
     end
   end
+end
+
+function NetMatch:updateCamera(dt)
+  local target = nil
+  if self.localPlane and self.localPlane.alive and not self.spectator then
+    target = self.localPlane
+  else
+    local sx, sy, n = 0, 0, 0
+    for id, v in pairs(self.visuals) do
+      if v.alive and id ~= self.selfId then
+        sx, sy, n = sx + v.x, sy + v.y, n + 1
+      end
+    end
+    if n > 0 then
+      target = { x = sx / n, y = sy / n }
+    end
+  end
+  if target then Camera.follow(self.camera, target.x, target.y, dt) end
 end
 
 function NetMatch:update(dt)
@@ -437,6 +460,7 @@ function NetMatch:update(dt)
   end
   self.particles:update(dt)
   self:updateVisuals(dt)
+  self:updateCamera(dt)
 
   -- Remote damage smoke only. Engine exhaust trails were removed because they
   -- could smear from the snapshot position while the predicted plane was
@@ -505,7 +529,6 @@ function NetMatch:updateLocalBullets(dt, input)
     self.localFireTimer = C.PLANE.fireInterval * (1 + (1 - Flight.gunFactor(p)) * 1.4)
     local a = p.angle + (love.math.random() - 0.5) * 2 * C.BULLET.spread
     local x, y = Combat.toWorld(p, 18, 0)
-    x, y = M.wrap(x, W), M.wrap(y, H)
     self.localBullets[#self.localBullets + 1] = {
       x = x, y = y, px = x, py = y,
       vx = math.cos(a) * C.BULLET.speed,
@@ -524,10 +547,11 @@ function NetMatch:updateLocalBullets(dt, input)
   while i <= #self.localBullets do
     local b = self.localBullets[i]
     b.px, b.py = b.x, b.y
-    b.x = M.wrap(b.x + b.vx * dt, W)
-    b.y = M.wrap(b.y + b.vy * dt, H)
+    b.x = b.x + b.vx * dt
+    b.y = b.y + b.vy * dt
     b.life = b.life - dt
-    if b.life <= 0 then
+    if b.life <= 0 or b.x < C.WORLD.wallLeft or b.x > C.WORLD.wallRight
+      or b.y < -10 or b.y > C.WORLD.groundY then
       self.localBullets[i] = self.localBullets[#self.localBullets]
       self.localBullets[#self.localBullets] = nil
     else
@@ -568,6 +592,7 @@ function NetMatch:drawWorld()
   local ws = C.WORLD.scale or 1
   love.graphics.push()
   love.graphics.scale(ws, ws)
+  Camera.apply(self.camera)
 
   for _, cloud in ipairs(self.farClouds.list) do
     Sprites.drawCloudCopies(cloud, 0.28)
@@ -582,6 +607,7 @@ function NetMatch:drawWorld()
   love.graphics.push()
   love.graphics.translate(shakeX, shakeY)
 
+  Walls.draw()
   Ground.draw()
 
   local snap = self.snapshot
@@ -603,22 +629,14 @@ function NetMatch:drawWorld()
     -- Own tracers are derived from the predicted nose, so they leave the nose
     -- even while turning and waiting for the next snapshot.
     for _, b in ipairs(self.localBullets) do
-      for _, ox in ipairs({ 0, -W, W }) do
-        local bx = b.x + ox
-        if bx > -10 and bx < W + 10 then
-          Sprites.drawBullet({ x = bx, y = b.y, vx = b.vx, vy = b.vy, team = 1 })
-        end
+      if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
+        and b.y > -10 and b.y < C.WORLD.groundY then
+        Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = 1 })
       end
     end
     for _, p in ipairs(snap.pickups or {}) do
       local pickup = { x = p.x, y = p.y + p.vy * age, phase = 0 }
-      for _, ox in ipairs({ 0, -W, W }) do
-        if pickup.x + ox > -20 and pickup.x + ox < W + 20 then
-          local copy = pickup
-          if ox ~= 0 then copy = setmetatable({ x = pickup.x + ox }, { __index = pickup }) end
-          Sprites.drawPickup(copy, self.uiTime)
-        end
-      end
+      Sprites.drawPickup(pickup, self.uiTime)
     end
   end
 
@@ -636,8 +654,8 @@ function NetMatch:drawWorld()
         Sprites.drawPlaneCopies(plane, self.uiTime, { colors = Sprites.TEAM.enemy })
         love.graphics.setFont(UI.font(7))
         UI.set(UI.C.cream)
-        local labelX = M.clamp(v.x - 30, 0, W - 60)
-        local barX = M.clamp(v.x - 15, 2, W - 32)
+        local labelX = M.clamp(v.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
+        local barX = M.clamp(v.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
         love.graphics.printf(self.names[id] or ("PILOT" .. id), labelX, v.y - 28, 60, "center")
         love.graphics.setColor(0.08, 0.10, 0.09, 0.8)
         love.graphics.rectangle("fill", barX, v.y - 19, 30, 3)

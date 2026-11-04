@@ -64,22 +64,17 @@ function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
   local w = worldW or C.WORLD.w
   local h = worldH or C.WORLD.h
 
-  for _, ox in ipairs({ 0, -w, w }) do
-    for _, oy in ipairs({ 0, -h, h }) do
-      local cx = plane.x + ox
-      local cy = plane.y + oy
-      -- Cheap broad phase: bullet is nowhere near this copy.
-      if math.abs(bullet.x - cx) < 40 and math.abs(bullet.y - cy) < 40 then
-        local dx1, dy1 = bullet.px - cx, bullet.py - cy
-        local dx2, dy2 = bullet.x - cx, bullet.y - cy
-        local lx1, ly1 = worldToLocal(plane.angle, dx1, dy1)
-        local lx2, ly2 = worldToLocal(plane.angle, dx2, dy2)
+  local cx = plane.x
+  local cy = plane.y
+  if math.abs(bullet.x - cx) < 40 and math.abs(bullet.y - cy) < 40 then
+    local dx1, dy1 = bullet.px - cx, bullet.py - cy
+    local dx2, dy2 = bullet.x - cx, bullet.y - cy
+    local lx1, ly1 = worldToLocal(plane.angle, dx1, dy1)
+    local lx2, ly2 = worldToLocal(plane.angle, dx2, dy2)
 
-        for _, shape in ipairs(SHAPES) do
-          if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y, shape.r) then
-            return shape.part, bullet.x, bullet.y
-          end
-        end
+    for _, shape in ipairs(SHAPES) do
+      if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y, shape.r) then
+        return shape.part, bullet.x, bullet.y
       end
     end
   end
@@ -87,19 +82,15 @@ function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
 end
 
 function Combat.pickupHitsPlane(pickup, plane, worldW, worldH)
-  local w = worldW or C.WORLD.w
-  local h = worldH or C.WORLD.h
-  local d2 = M.wrappedDist2(pickup.x, pickup.y, plane.x, plane.y, w, h)
+  local dx, dy = pickup.x - plane.x, pickup.y - plane.y
   local r = pickup.radius + plane.radius
-  return d2 <= r * r
+  return dx * dx + dy * dy <= r * r
 end
 
 function Combat.planesRam(a, b, worldW, worldH)
-  local w = worldW or C.WORLD.w
-  local h = worldH or C.WORLD.h
-  local d2 = M.wrappedDist2(a.x, a.y, b.x, b.y, w, h)
+  local dx, dy = a.x - b.x, a.y - b.y
   local r = a.radius + b.radius
-  return d2 <= r * r
+  return dx * dx + dy * dy <= r * r
 end
 
 -- Local hitbox shapes for the debug overlay.

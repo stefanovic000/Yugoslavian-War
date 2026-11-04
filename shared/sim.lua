@@ -34,7 +34,7 @@ function Sim:addPlane(opts)
   local plane = Flight.new(opts)
   plane.id = opts.id or (#self.planeOrder + 1)
   plane.team = opts.team or plane.id
-  plane.x = M.wrap(plane.x, self.w)
+  plane.x = M.clamp(plane.x, C.WORLD.wallLeft + C.PLANE.radius, C.WORLD.wallRight - C.PLANE.radius)
   plane.y = M.clamp(plane.y, C.PLANE.radius, C.WORLD.groundY - C.PLANE.radius)
   self.planes[plane.id] = plane
   self.planeOrder[#self.planeOrder + 1] = plane.id
@@ -61,8 +61,8 @@ function Sim:spawnBullet(plane)
   local angle = plane.angle + spread
   local fx, fy = math.cos(angle), math.sin(angle)
   local nx, ny = Combat.toWorld(plane, 18, 0)
-  local x = M.wrap(nx, self.w)
-  local y = M.wrap(ny, self.h)
+  local x = nx
+  local y = ny
 
   local bullet = {
     id = self.nextBulletId,
@@ -106,7 +106,7 @@ function Sim:spawnPickup(x)
   if #self.pickups >= C.PICKUP.max then return end
   local pickup = {
     id = #self.pickups + 1,
-    x = x or self.rng:range(40, self.w - 40),
+    x = x or self.rng:range(C.WORLD.wallLeft + 50, C.WORLD.wallRight - 50),
     y = -12,
     vy = C.PICKUP.fallSpeed,
     phase = self.rng:range(0, math.pi * 2),
@@ -132,8 +132,19 @@ function Sim:step(inputs, dt)
         plane.hp = 0
         plane.alive = false
         events[#events + 1] = {
-          type = "crash", victim = plane.id,
+          type = "crash", reason = "ground", victim = plane.id,
           x = plane.x, y = C.WORLD.groundY,
+        }
+      elseif plane.alive
+        and (plane.x <= C.WORLD.wallLeft + C.PLANE.radius
+          or plane.x >= C.WORLD.wallRight - C.PLANE.radius) then
+        plane.x = M.clamp(plane.x, C.WORLD.wallLeft + C.PLANE.radius,
+          C.WORLD.wallRight - C.PLANE.radius)
+        plane.hp = 0
+        plane.alive = false
+        events[#events + 1] = {
+          type = "crash", reason = "wall", victim = plane.id,
+          x = plane.x, y = plane.y,
         }
       else
         self:tryFire(plane, input)
@@ -150,7 +161,9 @@ function Sim:step(inputs, dt)
     b.y = b.y + b.vy * dt
     b.life = b.life - dt
 
-    if b.life <= 0 or b.x < -20 or b.x > self.w + 20 or b.y < -20 or b.y > self.h + 20 then
+    if b.life <= 0
+      or b.x < C.WORLD.wallLeft - 10 or b.x > C.WORLD.wallRight + 10
+      or b.y < -20 or b.y > C.WORLD.groundY + 10 then
       b.dead = true
     else
       for _, pid in ipairs(self.planeOrder) do
@@ -232,7 +245,8 @@ function Sim:step(inputs, dt)
   while i <= #self.pickups do
     local pickup = self.pickups[i]
     pickup.y = pickup.y + pickup.vy * dt
-    pickup.x = M.wrap(pickup.x + math.sin(self.time * 0.8 + pickup.phase) * 5 * dt, self.w)
+    pickup.x = M.clamp(pickup.x + math.sin(self.time * 0.8 + pickup.phase) * 5 * dt,
+      C.WORLD.wallLeft + pickup.radius, C.WORLD.wallRight - pickup.radius)
 
     local taken = false
     for _, pid in ipairs(self.planeOrder) do

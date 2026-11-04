@@ -16,6 +16,8 @@ local Settings = require("src.game.settings")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
+local Walls = require("src.game.walls")
+local Camera = require("src.game.camera")
 local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
@@ -43,11 +45,11 @@ local function covered(clouds, plane)
 end
 
 local function spawnPoint(side)
-  local y = M.clamp(120 + love.math.random() * 120, 80, H - 80)
+  local y = M.clamp(120 + love.math.random() * 120, 80, C.WORLD.groundY - 80)
   if side == "left" then
-    return 40, y, 0
+    return C.WORLD.wallLeft + 60, y, 0
   end
-  return W - 40, y, math.pi
+  return C.WORLD.wallRight - 60, y, math.pi
 end
 
 function Solo:enter()
@@ -61,7 +63,8 @@ function Solo:enter()
     name = Settings.data.callsign, team = 1,
   })
   self.enemy = self.sim:addPlane({
-    id = 2, x = W - 40, y = M.wrap(py + 40, H), angle = math.pi, speed = 120, throttle = 0.8,
+    id = 2, x = C.WORLD.wallRight - 60, y = M.clamp(py + 40, 80, C.WORLD.groundY - 80),
+    angle = math.pi, speed = 120, throttle = 0.8,
     name = "DEMO", team = 2, hp = 96,
   })
   self.aiState = AI.newState()
@@ -79,6 +82,7 @@ function Solo:enter()
   self.playerRespawn = 0
   self.enemyRespawn = 0
   self.paused = false
+  self.camera = Camera.new()
   self.pauseIndex = 1
   self.hover = nil
   self.uiTime = 0
@@ -94,6 +98,7 @@ function Solo:enter()
   self.partFlash = { engine = 0, wing = 0, tail = 0, guns = 0 }
 
   self:registerDebug()
+  Camera.snap(self.camera, self.player.x, self.player.y)
   log.info("solo test flight entered (seed=%d)", self.seed)
 end
 
@@ -277,6 +282,7 @@ function Solo:respawnPlayer()
   self.aDown, self.dDown = false, false
   self.lastPitchKey = nil
   self.wasStalling = false
+  Camera.snap(self.camera, self.player.x, self.player.y)
 end
 
 function Solo:respawnEnemy()
@@ -353,6 +359,9 @@ function Solo:update(dt)
   end
   self.hullGhost = damp(self.hullGhost, self.player.hp / self.player.maxHp, 4, dt)
 
+  local follow = self.player.alive and self.player or (self.enemy.alive and self.enemy)
+  if follow then Camera.follow(self.camera, follow.x, follow.y, dt) end
+
   if self.player.alive and self.player.stalling and not self.wasStalling then
     Audio.play("stall", 0.22)
   end
@@ -375,6 +384,7 @@ function Solo:drawWorld()
   local ws = C.WORLD.scale or 1
   love.graphics.push()
   love.graphics.scale(ws, ws)
+  Camera.apply(self.camera)
 
   for _, cloud in ipairs(self.farClouds.list) do
     Sprites.drawCloudCopies(cloud, 0.28)
@@ -389,6 +399,7 @@ function Solo:drawWorld()
   love.graphics.push()
   love.graphics.translate(shakeX, shakeY)
 
+  Walls.draw()
   Ground.draw()
 
   for _, b in ipairs(self.sim.bullets) do
@@ -398,14 +409,7 @@ function Solo:drawWorld()
   end
 
   for _, pickup in ipairs(self.sim.pickups) do
-    for _, ox in ipairs({ 0, -W, W }) do
-      local x = pickup.x + ox
-      if x > -20 and x < W + 20 then
-        local copy = pickup
-        if ox ~= 0 then copy = setmetatable({ x = x }, { __index = pickup }) end
-        Sprites.drawPickup(copy, self.uiTime)
-      end
-    end
+    Sprites.drawPickup(pickup, self.uiTime)
   end
 
   self.particles:draw()
@@ -417,8 +421,8 @@ function Solo:drawWorld()
     Sprites.drawPlaneCopies(self.enemy, self.uiTime, { colors = Sprites.TEAM.enemy })
     love.graphics.setFont(UI.font(8))
     UI.set(UI.C.cream)
-    local labelX = M.clamp(self.enemy.x - 30, 0, W - 60)
-    local barX = M.clamp(self.enemy.x - 15, 2, W - 32)
+    local labelX = M.clamp(self.enemy.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
+    local barX = M.clamp(self.enemy.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
     love.graphics.printf("DEMO", labelX, self.enemy.y - 28, 60, "center")
     love.graphics.setColor(0.1, 0.12, 0.12, 0.7)
     love.graphics.rectangle("fill", barX, self.enemy.y - 19, 30, 3)

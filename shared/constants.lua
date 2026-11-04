@@ -7,12 +7,21 @@ local C = {
   GAME_NAME = "Yugoslavian War",
   VERSION = "0.2.4",
 
-  WORLD = { w = 800, h = 450, scale = 0.8, groundY = 375 },
+  WORLD = {
+    w = 1000, h = 520, scale = 0.8,
+    viewW = 800, viewH = 450,
+    groundY = 445, wallLeft = 40, wallRight = 960,
+  },
   SPAWNS = {
-    { x = 60, y = 120, angle = 0 },
-    { x = 740, y = 330, angle = math.pi },
-    { x = 60, y = 330, angle = 0 },
-    { x = 740, y = 120, angle = math.pi },
+    { x = 100, y = 140, angle = 0 },
+    { x = 900, y = 380, angle = math.pi },
+    { x = 100, y = 380, angle = 0 },
+    { x = 900, y = 140, angle = math.pi },
+  },
+  SPAWNS3 = {
+    { x = 100, y = 140, angle = 0 },
+    { x = 900, y = 140, angle = math.pi },
+    { x = 500, y = 390, angle = -math.pi / 2 },
   },
   TICK = 1 / 60,
   TICK_RATE = 60,

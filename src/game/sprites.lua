@@ -198,18 +198,7 @@ end
 -- Draw all wrapping copies of a plane. World is toroidal, so a plane at x=2
 -- also appears at x=642 (right edge) for the camera.
 function Sprites.drawPlaneCopies(plane, time, opts)
-  local w = C.WORLD.w
-  for _, ox in ipairs({ 0, -w, w }) do
-    local x = plane.x + ox
-    local y = plane.y
-    if x > -30 and x < w + 30 and y > -30 and y < C.WORLD.h + 30 then
-      local copy = plane
-      if ox ~= 0 then
-        copy = setmetatable({ x = x, y = y }, { __index = plane })
-      end
-      Sprites.drawPlane(copy, time, opts)
-    end
-  end
+  Sprites.drawPlane(plane, time, opts)
 end
 
 function Sprites.drawBullet(bullet)
