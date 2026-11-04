@@ -11,6 +11,7 @@
 local socket = require("socket")
 local json = require("lib.json")
 local C = require("shared.constants")
+local Aircraft = require("shared.aircraft")
 local Match = require("server.match")
 
 local Server = {}
@@ -260,6 +261,7 @@ function Server:playerInfo(room)
     if c then
       list[#list + 1] = {
         id = id, name = c.name or ("Pilot" .. id), isBot = false,
+        planeType = Aircraft.normalize(c.aircraft),
         team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
       }
     end
@@ -282,6 +284,7 @@ function Server:playerInfo(room)
     end
     list[#list + 1] = {
       id = -b, name = "BOT " .. tostring(b), isBot = true, team = team,
+      planeType = Aircraft.order[((b - 1) % #Aircraft.order) + 1].id,
     }
   end
   return list
@@ -295,7 +298,8 @@ function Server:roomState(room)
     if c then
       players[#players + 1] = {
         id = id, name = c.name or ("Pilot" .. id), host = (id == room.hostId),
-        bot = false, team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
+        bot = false, planeType = Aircraft.normalize(c.aircraft),
+        team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
       }
     end
   end
@@ -672,6 +676,7 @@ function Server.handlers.hello(self, client, msg)
   if client.hello then return end
   client.hello = true
   client.name = sanitizeName(msg.name, "Pilot" .. client.id)
+  client.aircraft = Aircraft.normalize(msg.aircraft)
   self:send(client, {
     type = "welcome",
     selfId = client.id,

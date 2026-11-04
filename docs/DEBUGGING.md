@@ -1,4 +1,4 @@
-# Debugging guide
+﻿# Debugging guide
 
 The game is built so problems are visible without adding a `print`. The debug
 layers are independent of gameplay and work in solo and online matches.
@@ -13,11 +13,11 @@ layers are independent of gameplay and work in solo and online matches.
 | `F2` / `` ` `` | Console with commands, history and completion |
 | `F3` | Hitboxes, cloud volumes, velocity vectors |
 | `F4` | Profiler panel |
-| `F6` / `F7` / `F8` | Pause / step / 0.25× slow motion |
+| `F6` / `F7` / `F8` | Pause / step / 0.25Ã— slow motion |
 | `F9` | Screenshot to the save folder |
 | `F5` | Reload the current scene (blocked during a live match) |
 
-The 800×450 world is rendered at 0.8× into the 640×360 game canvas, then scaled
+The 800Ã—450 world is rendered at 0.8Ã— into the 640Ã—360 game canvas, then scaled
 to the window; the debug HUD is drawn at native window resolution so it stays
 readable.
 
@@ -141,7 +141,7 @@ so `F3` is the ground truth for "did that hit?".
 
 ## Time control
 
-`F6` pauses, `F7` steps one 1/60 s update, `F8` toggles 0.25×. In a live match
+`F6` pauses, `F7` steps one 1/60 s update, `F8` toggles 0.25Ã—. In a live match
 this freezes only the local client; the server keeps running, so snapshots will
 snap you forward on resume. Use it for inspection, not as a pause button.
 
@@ -155,8 +155,8 @@ snap you forward on resume. Use it for inspection, not as a pause button.
 run.bat --server --port=7777
 ```
 
-This runs the exact server code headlessly through LÖVE's bundled LuaSocket.
-Then set Settings → Server Address to `127.0.0.1`, port `7777`, and open
+This runs the exact server code headlessly through LÃ–VE's bundled LuaSocket.
+Then set Settings â†’ Server Address to `127.0.0.1`, port `7777`, and open
 Multiplayer.
 
 On Ubuntu:
@@ -167,15 +167,15 @@ lua5.1 server/run.lua --port=7777
 
 ### Test hooks
 
-- `--flow=create` — connect and create a room automatically.
-- `--flow=join` — connect and join the first room.
-- `--flow=start` — create/join and start when 2+ players are present.
-- `--noclouds` — disable cloud occlusion for screenshots/debugging.
-- `--scene=menu|solo|multiplayer|settings` — boot straight into a scene.
-- `--shot=name --frames=N` — capture a PNG and exit.
-- `--uitest --nohud` — click Settings, edit fields and capture
+- `--flow=create` â€” connect and create a room automatically.
+- `--flow=join` â€” connect and join the first room.
+- `--flow=start` â€” create/join and start when 2+ players are present.
+- `--noclouds` â€” disable cloud occlusion for screenshots/debugging.
+- `--scene=menu|solo|multiplayer|settings` â€” boot straight into a scene.
+- `--shot=name --frames=N` â€” capture a PNG and exit.
+- `--uitest --nohud` â€” click Settings, edit fields and capture
   `preview-uitest.png`; proves mouse routing and text input.
-- `--smoke` — solo smoke run (see below).
+- `--smoke` â€” solo smoke run (see below).
 
 ### Second player bot
 
@@ -253,7 +253,7 @@ uncaught error instead of hanging on the crash screen.
 test.bat
 ```
 
-48 tests cover:
+49 tests cover:
 
 - utility math/string wrapping;
 - class inheritance;
@@ -278,7 +278,7 @@ cases, and register it in `tests/run.lua`.
 
 1. Install **Local Lua Debugger**
    (`tomblind.local-lua-debugger-vscode`).
-2. `F5` → **LÖVE: run + debug**.
+2. `F5` â†’ **LÃ–VE: run + debug**.
 
 The profile runs `love.exe`, sets `LOCAL_LUA_DEBUGGER_VSCODE=1` and disables the
 extra console window in `conf.lua`. Breakpoints work in `main.lua`, scenes,
@@ -298,7 +298,7 @@ restart the debugger after editing core files.
 | `--server` | Run the dedicated server headlessly |
 | `--port=N` | Server port |
 | `--seed=N` | Deterministic RNG seed |
-| `--log=LEVEL` | `trace`…`off` |
+| `--log=LEVEL` | `trace`â€¦`off` |
 | `--scene=NAME` | Boot into a scene |
 | `--shot=NAME` | Capture a screenshot and exit |
 | `--frames=N` | Frames before the screenshot |
@@ -320,3 +320,4 @@ restart the debugger after editing core files.
   a display shortcut.
 - If a client seems frozen, check `input seq` vs `acked seq`, then the server
   journal. A dead TCP connection closes the match scene back to the browser.
+

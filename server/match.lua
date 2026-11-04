@@ -59,18 +59,19 @@ function Match.new(players, seed, opts)
     if not team then
       team = teamMode and (((i - 1) % 2) + 1) or p.id
     end
-    m:addPlayer(p.id, p.name, i, team, p.isBot == true)
+    m:addPlayer(p.id, p.name, i, team, p.isBot == true, p.planeType)
   end
   m:startRound(1, true)
   return m
 end
 
-function Match:addPlayer(id, name, index, team, isBot)
+function Match:addPlayer(id, name, index, team, isBot, planeType)
   if self.info[id] then return end
   self.players[#self.players + 1] = id
   self.info[id] = {
     id = id, name = name or ("Pilot" .. id), slot = index or #self.players,
     team = team or id, bot = isBot == true,
+    planeType = planeType or "ik3",
   }
   self.teams[id] = team or id
   self.bots[id] = isBot == true or nil
@@ -166,7 +167,7 @@ function Match:startRound(number, withPrep)
       plane = self.sim:addPlane({
         id = id, x = slot.x, y = slot.y, angle = slot.angle,
         speed = 120, throttle = 0.7, name = self.info[id].name,
-        team = team, hp = C.PLANE.hp,
+        team = team, planeType = self.info[id].planeType,
       })
     else
       Flight.reset(plane, slot.x, slot.y, slot.angle)
@@ -427,6 +428,8 @@ function Match:buildSnapshot()
         heat = r2(p.heat or 0),
         jam = r2(p.jammed or 0),
         hp = math.floor(p.hp),
+        maxHp = math.floor(p.maxHp or p.hp),
+        planeType = p.planeType or "ik3",
         alive = p.alive,
         hidden = Clouds.pointInside(self.sim.clouds, p.x, p.y),
         seenBy = seenBy,

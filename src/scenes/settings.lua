@@ -6,6 +6,7 @@ local Settings = require("src.game.settings")
 local Controls = require("src.game.controls")
 local Sky = require("src.game.sky")
 local View = require("src.game.view")
+local Aircraft = require("shared.aircraft")
 local UI = require("src.ui.ui")
 local log = require("src.core.log")
 
@@ -181,6 +182,7 @@ function SettingsScene:update(dt)
     if UI.hit(mx, my, 352, 144, 220, 24) then self.hover = "fps" end
     if UI.hit(mx, my, 352, 180, 220, 24) then self.hover = "shake" end
     if UI.hit(mx, my, 352, 216, 220, 24) then self.hover = "resolution" end
+    if UI.hit(mx, my, 352, 252, 220, 24) then self.hover = "aircraft" end
   elseif self.tab == 2 then
     for i = 1, #ACTIONS do
       if UI.hit(mx, my, 86, 104 + (i - 1) * 25, 420, 22) then self.hover = "bind" .. i end
@@ -243,6 +245,18 @@ function SettingsScene:drawSlider(x, y, label, key)
     x, y + 9, UI.C.cream, "right", 360)
 end
 
+function SettingsScene:drawAircraft(x, y, hovered)
+  UI.set(hovered and UI.C.cream or UI.C.cream2)
+  love.graphics.setFont(UI.font(11))
+  love.graphics.print("AIRCRAFT", x, y)
+  love.graphics.setFont(UI.font(11, true))
+  UI.set(UI.C.orange)
+  local spec = Aircraft.get(Settings.data.aircraft)
+  love.graphics.printf((spec.shortName or spec.name):upper(), x, y, 220, "right")
+  UI.set(UI.C.ink3)
+  love.graphics.rectangle("fill", x, y + 17, 220, 1)
+end
+
 function SettingsScene:drawGame()
   UI.small("PILOT + NETWORK", 86, 84, UI.C.orange, "left")
   UI.small("DISPLAY", 352, 84, UI.C.orange, "left")
@@ -255,8 +269,7 @@ function SettingsScene:drawGame()
   self:drawToggle(352, 144, "SHOW FPS", Settings.data.showFps == true, self.hover == "fps")
   self:drawToggle(352, 180, "SCREEN SHAKE", Settings.data.screenShake ~= false, self.hover == "shake")
   self:drawResolution(352, 216, self.hover == "resolution")
-
-  UI.small("Ubuntu server address or IP. TCP port must match the server.", 86, 250, UI.C.cream2, "left")
+  self:drawAircraft(352, 252, self.hover == "aircraft")
 end
 
 function SettingsScene:drawControls()
@@ -356,6 +369,14 @@ function SettingsScene:mousepressed(x, y)
       Settings.data.resolution = tostring(r.w) .. "x" .. tostring(r.h)
       Settings.apply()
       View.resize(love.graphics.getDimensions())
+      Settings.save()
+    elseif UI.hit(mx, my, 352, 252, 220, 24) then
+      local list = Aircraft.all()
+      local index = 1
+      for i, spec in ipairs(list) do
+        if spec.id == Settings.data.aircraft then index = i end
+      end
+      Settings.data.aircraft = list[(index % #list) + 1].id
       Settings.save()
     end
   elseif self.tab == 2 then

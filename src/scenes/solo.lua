@@ -1,4 +1,4 @@
--- solo.lua
+﻿-- solo.lua
 -- Test flight against a demo AI plane. This is a full simulation of the same
 -- shared flight/combat model used online: wrap-around arena, clouds, modular
 -- damage, parachute ammo and stalling.
@@ -13,6 +13,7 @@ local AI = require("shared.ai")
 local Debug = require("src.core.debug")
 local dd = require("src.core.debugdraw")
 local Settings = require("src.game.settings")
+local Aircraft = require("shared.aircraft")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
@@ -64,11 +65,13 @@ function Solo:enter()
   self.player = self.sim:addPlane({
     id = 1, x = px, y = py, angle = pa, speed = 120, throttle = 0.7,
     name = Settings.data.callsign, team = 1,
+    planeType = Settings.data.aircraft,
   })
   self.enemy = self.sim:addPlane({
     id = 2, x = C.WORLD.wallRight - 60, y = M.clamp(py + 40, 80, C.WORLD.groundY - 80),
     angle = math.pi, speed = 120, throttle = 0.8,
     name = "DEMO", team = 2, hp = 96,
+    planeType = (Settings.data.aircraft == "bf109e") and "ik3" or "bf109e",
   })
   self.aiState = AI.newState()
   self.particles = Particles.new(700)
@@ -543,7 +546,7 @@ function Solo:drawHud()
   }
   for i, part in ipairs(parts) do
     local x = 16 + (i - 1) * 40
-    local frac = part[2] / C.PLANE.partHp
+    local frac = part[2] / ((p.spec and p.spec.stats.partHp) or C.PLANE.partHp)
     UI.set(UI.C.cream2)
     love.graphics.setFont(UI.font(7))
     love.graphics.print(part[1], x, 40)
@@ -729,6 +732,7 @@ function Solo:mousepressed(x, y)
 end
 
 return Solo
+
 
 
 

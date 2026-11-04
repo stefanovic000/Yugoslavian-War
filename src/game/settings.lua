@@ -1,6 +1,7 @@
 -- Persistent player settings. Stored as JSON in the LÖVE save directory.
 
 local json = require("lib.json")
+local Aircraft = require("shared.aircraft")
 
 local Settings = {
   path = "settings.json",
@@ -18,6 +19,7 @@ local DEFAULTS = {
   masterVolume = 1.0,
   effectsVolume = 1.0,
   resolution = "1280x720",
+  aircraft = "ik3",
   bindings = {
     throttleUp = "w",
     throttleDown = "s",
@@ -92,6 +94,7 @@ local function sanitize(data)
   out.masterVolume = math.max(0, math.min(1, tonumber(data.masterVolume) or DEFAULTS.masterVolume))
   out.effectsVolume = math.max(0, math.min(1, tonumber(data.effectsVolume) or DEFAULTS.effectsVolume))
   out.resolution = resolutionLabel(RESOLUTIONS[resolutionIndex(data.resolution)])
+  out.aircraft = Aircraft.normalize(data.aircraft)
   return out
 end
 

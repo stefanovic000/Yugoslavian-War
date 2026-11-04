@@ -50,9 +50,10 @@ function Client:send(message)
   return true
 end
 
-function Client:connect(host, port, name)
+function Client:connect(host, port, name, aircraft)
   self:close()
   self.host, self.port, self.name = host, port, name
+  self.aircraft = aircraft or self.aircraft or "ik3"
   self.status = "connecting"
   self.selfId = nil
   self.serverVersion = nil
@@ -83,7 +84,8 @@ function Client:connected()
   if self.status ~= "connected" then
     self.status = "connected"
     self.lastRecv = now()
-    self:send({ type = "hello", name = self.name, version = C.VERSION })
+    self:send({ type = "hello", name = self.name, version = C.VERSION,
+      aircraft = self.aircraft or "ik3" })
   end
 end
 

@@ -8,15 +8,17 @@ local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
+local Aircraft = require("shared.aircraft")
 local log = require("src.core.log")
 
 local Menu = { name = "menu", module = "src.scenes.menu" }
 
 local function fakePlane(x, y, angle, team)
+  local spec = Aircraft.get(team == 1 and "ik3" or "bf109e")
   return {
     x = x, y = y, angle = angle, throttle = 0.8, alive = true,
     invuln = 0, hitFlash = 0, parts = { engine = 60, wing = 60, tail = 60, guns = 60 },
-    team = team,
+    team = team, planeType = spec.id, spec = spec,
   }
 end
 

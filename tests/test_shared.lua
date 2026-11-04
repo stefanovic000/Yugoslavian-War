@@ -472,4 +472,21 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "aircraft registry drives shared flight stats",
+  fn = function()
+    local Aircraft = require("shared.aircraft")
+    local Flight = require("shared.flight")
+    assert(Aircraft.get("bf109e").id == "bf109e")
+    assert(Aircraft.get("missing").id == "ik3")
+    local a = Flight.new({ planeType = "bf109e" })
+    assert(a.planeType == "bf109e")
+    assert(a.ammo == 70)
+    assert(a.parts.wing == 56)
+    assert(a.spec.stats.maxSpeed == 188)
+    local b = Flight.new({ planeType = "ik3" })
+    assert(b.ammo == 90 and b.spec.stats.maxSpeed == 170)
+  end,
+}
+
 return cases

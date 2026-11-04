@@ -1,4 +1,4 @@
--- netmatch.lua
+﻿-- netmatch.lua
 -- Networked match view. Own plane is predicted locally and reconciled from
 -- snapshots; remote planes are smoothed toward the latest authoritative state.
 
@@ -17,6 +17,7 @@ local Vision = require("shared.vision")
 local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
 local Controls = require("src.game.controls")
+local Aircraft = require("shared.aircraft")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -39,6 +40,12 @@ local function copyServerPlane(target, sp)
   target.angle = sp.a
   target.pitchVel = sp.pv or 0
   target.hp = sp.hp
+  if sp.maxHp then target.maxHp = sp.maxHp end
+  if sp.planeType then
+    target.planeType = sp.planeType
+    target.spec = Aircraft.get(sp.planeType)
+    target.radius = target.spec.stats.radius
+  end
   target.alive = sp.alive
   target.throttle = sp.throttle
   target.ammo = sp.ammo
@@ -379,6 +386,8 @@ function NetMatch:onSnapshot(msg)
     if not v then
       v = {
         x = sp.x, y = sp.y, angle = sp.a, hp = sp.hp,
+        maxHp = sp.maxHp or sp.hp, planeType = sp.planeType or "ik3",
+        spec = Aircraft.get(sp.planeType),
         alive = sp.alive, hidden = sp.hidden == true, parts = sp.parts, ammo = sp.ammo,
         seenBy = sp.seenBy, team = sp.team,
       }
@@ -404,6 +413,7 @@ function NetMatch:onSnapshot(msg)
       self.localPlane = Flight.new({
         id = self.selfId, x = own.x, y = own.y, angle = own.a, speed = 200,
         team = own.team or self.selfId, name = self.names[self.selfId] or "Pilot",
+        planeType = own.planeType,
       })
     end
     copyServerPlane(self.localPlane, own)
@@ -621,7 +631,7 @@ function NetMatch:updateLocalBullets(dt, input)
   if input and input.fire and p.alive and not self.spectator
     and (p.parts.guns or 0) > 0 and (p.ammo or 0) > 0
     and (p.jammed or 0) <= 0 and (p.heat or 0) < 1 and self.localFireTimer <= 0 then
-    self.localFireTimer = C.PLANE.fireInterval * (1 + (1 - Flight.gunFactor(p)) * 1.4)
+    self.localFireTimer = Flight.fireInterval(p)
     local a = p.angle + (love.math.random() - 0.5) * 2 * C.BULLET.spread
     local x, y = Combat.toWorld(p, 18, 0)
     self.localBullets[#self.localBullets + 1] = {
@@ -782,7 +792,7 @@ function NetMatch:drawWorld()
           love.graphics.setColor(0.08, 0.10, 0.09, 0.8)
           love.graphics.rectangle("fill", barX, v.y - 19, 30, 3)
           love.graphics.setColor(0.85, 0.40, 0.25, 0.95)
-          love.graphics.rectangle("fill", barX, v.y - 19, 30 * (v.hp / C.PLANE.hp), 3)
+          love.graphics.rectangle("fill", barX, v.y - 19, 30 * (v.hp / (v.maxHp or C.PLANE.hp)), 3)
         end
       end
     end
@@ -899,7 +909,7 @@ function NetMatch:drawHud()
     }
     for i, part in ipairs(parts) do
       local x = 16 + (i - 1) * 40
-      local pf = part[2] / C.PLANE.partHp
+      local pf = part[2] / ((p.spec and p.spec.stats.partHp) or C.PLANE.partHp)
       love.graphics.setFont(UI.font(6))
       UI.set(UI.C.cream2)
       love.graphics.print(part[1], x, 40)
@@ -1192,3 +1202,4 @@ function NetMatch:mousepressed(x, y)
 end
 
 return NetMatch
+

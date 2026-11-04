@@ -1,9 +1,8 @@
 -- Code-drawn pixel-art sprites. No external image assets, so startup stays
 -- fast and every plane/cloud scales crisply in the 640x360 canvas.
 
-local C = require("shared.constants")
 local Shapes = require("shared.cloud_shapes")
-local M = require("shared.mathx")
+local PlaneArt = require("src.game.planeart")
 
 local Sprites = {}
 
@@ -24,176 +23,13 @@ local TEAM = {
 
 Sprites.TEAM = TEAM
 
-local INK = { 0.055, 0.070, 0.090 }
-
-local function setColor(c, a)
-  love.graphics.setColor(c[1], c[2], c[3], a or 1)
-end
-
-local function poly(points, color, a)
-  setColor(color, a)
-  love.graphics.polygon("fill", points)
-end
-
-local function outline(points, color, a)
-  setColor(color, a)
-  love.graphics.setLineWidth(1)
-  love.graphics.polygon("line", points)
-end
-
--- Draw one plane at its current position (no wrap copies).
+-- Draw one plane at its current position. Aircraft art is data-driven in
+-- PlaneArt; this module owns team colours and the cloud/bullet sprite helpers.
 function Sprites.drawPlane(plane, time, opts)
   opts = opts or {}
-  local colors = TEAM[plane.team == 1 and "player" or "enemy"] or TEAM.enemy
-  if opts.colors then colors = opts.colors end
-
-  local alpha = opts.alpha or 1
-  if plane.invuln and plane.invuln > 0 and math.floor(time * 18) % 2 == 0 then
-    alpha = alpha * 0.45
-  end
-
-  local wingHp = plane.parts and plane.parts.wing or 60
-  local tailHp = plane.parts and plane.parts.tail or 60
-  local engineHp = plane.parts and plane.parts.engine or 60
-  local gunsHp = plane.parts and plane.parts.guns or 60
-
-  local function drawBody(alpha)
-
-  -- vertical fin / rudder
-  if tailHp > 22 then
-    local fin = { -12, -1, -20, -10, -11, -3 }
-    poly(fin, colors.dark, alpha)
-    outline(fin, INK, 0.8 * alpha)
-
-    -- Yugoslav tail flash: blue / white / red bands.
-    setColor({ 0.16, 0.28, 0.55 }, 0.9 * alpha)
-    love.graphics.rectangle("fill", -18.5, -7.5, 4.5, 1.2)
-    setColor({ 0.90, 0.88, 0.78 }, 0.9 * alpha)
-    love.graphics.rectangle("fill", -18.5, -6.3, 4.5, 1.2)
-    setColor({ 0.62, 0.16, 0.14 }, 0.9 * alpha)
-    love.graphics.rectangle("fill", -18.5, -5.1, 4.5, 1.2)
-  end
-
-  -- horizontal stabilizer
-  poly({ -11, 0, -19, 4, -10, 2 }, colors.dark, alpha)
-
-  -- low wing: single monoplane wing, broad and slightly tapered
-  if wingHp > 22 then
-    local wing = { 8, 2, 3, 11, -11, 11, -14, 4, -4, 3 }
-    poly(wing, colors.dark, alpha)
-    outline(wing, INK, 0.8 * alpha)
-    -- wing root fairing
-    poly({ 5, 2, -2, 6, -9, 6, -8, 3 }, colors.body, 0.8 * alpha)
-    if wingHp < 45 then
-      setColor(INK, 0.55 * alpha)
-      love.graphics.rectangle("fill", -7, 6, 3, 3)
-    end
-  else
-    poly({ 5, 2, -2, 4, -8, 4, -7, 2 }, colors.dark, alpha)
-  end
-
-  -- radial/inline engine cowling
-  local body = { 18, 0, 14, -4, 5, -5, -6, -4, -15, -2, -15, 2, -6, 4, 5, 5, 14, 4 }
-  poly(body, colors.body, alpha)
-  outline(body, INK, 0.9 * alpha)
-
-  -- nose cowling and exhaust stacks
-  poly({ 18, 0, 14, -3, 14, 3 }, colors.dark, alpha)
-  if engineHp <= 22 then
-    setColor(INK, 0.85 * alpha)
-    love.graphics.rectangle("fill", 14, -3, 4, 6)
-    setColor({ 0.95, 0.45, 0.22 }, 0.8 * alpha)
-    love.graphics.rectangle("fill", 15, -1, 2, 2)
-  end
-  setColor(INK, 0.7 * alpha)
-  love.graphics.rectangle("fill", 12, -3, 1, 5)
-  love.graphics.rectangle("fill", 9, -3, 1, 5)
-  love.graphics.rectangle("fill", 6, -3, 1, 4)
-
-  -- radiator bath under the fuselage
-  poly({ -2, 4, 4, 4, 2, 7, -3, 6 }, colors.dark, alpha)
-  outline({ -2, 4, 4, 4, 2, 7, -3, 6 }, INK, 0.45 * alpha)
-
-  -- framed cockpit canopy
-  local canopy = { 6, -4, 3, -7, -1, -6, -2, -3 }
-  poly(canopy, colors.light, alpha)
-  outline(canopy, INK, 0.7 * alpha)
-  setColor(INK, 0.5 * alpha)
-  love.graphics.line(-1, -6, 0, -4)
-
-  -- Yugoslavia: red / white / blue roundel with the white cross.
-  if plane.team == 1 then
-    setColor({ 0.66, 0.15, 0.13 }, 0.95 * alpha)
-    love.graphics.circle("fill", -5, 0, 3.2)
-    setColor({ 0.92, 0.90, 0.80 }, 0.95 * alpha)
-    love.graphics.circle("fill", -5, 0, 2.1)
-    setColor({ 0.14, 0.24, 0.50 }, 0.95 * alpha)
-    love.graphics.circle("fill", -5, 0, 1.0)
-    setColor({ 0.95, 0.93, 0.84 }, 0.9 * alpha)
-    love.graphics.rectangle("fill", -6.4, -0.4, 2.8, 0.8)
-    love.graphics.rectangle("fill", -5.4, -1.4, 0.8, 2.8)
-  else
-    -- enemy Balkan cross
-    setColor({ 0.94, 0.92, 0.84 }, 0.9 * alpha)
-    love.graphics.rectangle("fill", -6.6, -2.2, 3.2, 1.0)
-    love.graphics.rectangle("fill", -5.5, -3.1, 1.0, 3.2)
-    setColor(INK, 0.95 * alpha)
-    love.graphics.rectangle("fill", -6.1, -1.8, 2.2, 0.5)
-    love.graphics.rectangle("fill", -5.25, -2.7, 0.5, 2.2)
-  end
-
-  -- gun barrels in the wing
-  if gunsHp > 18 then
-    setColor(INK, 0.85 * alpha)
-    love.graphics.rectangle("fill", 12, -1, 6, 1)
-    love.graphics.rectangle("fill", 12, 1, 6, 1)
-  end
-
-  -- propeller disc and spinner
-  if plane.alive then
-    local power = 0.4 + (plane.throttle or 0.5) * 0.8
-    setColor(INK, 0.18 * alpha)
-    love.graphics.ellipse("fill", 18.5, 0, 1.2, 7 * power)
-    setColor(colors.accent, 0.9 * alpha)
-    love.graphics.circle("fill", 18, 0, 1.4)
-  end
-
-  if plane.hitFlash and plane.hitFlash > 0 then
-    setColor({ 1, 1, 1 }, 0.45 * alpha)
-    love.graphics.polygon("fill", body)
-  end
-  end -- drawBody
-
-  local c = math.cos(plane.angle)
-  local blend = math.min(1, math.abs(c) / 0.18)
-
-  local function drawAt(mirror, a)
-    love.graphics.push()
-    love.graphics.translate(plane.x, plane.y)
-    if mirror then
-      -- LÖVE applies this as rotate-then-mirror. Mirroring the local art first
-      -- keeps the nose on plane.angle; the old reverse order flipped the nose
-      -- vertically at diagonal left-facing poses.
-      love.graphics.rotate(plane.angle - math.pi)
-      love.graphics.scale(-1, 1)
-    else
-      love.graphics.rotate(plane.angle)
-    end
-    love.graphics.scale(0.95, 0.95)
-    drawBody(a)
-    love.graphics.pop()
-  end
-
-  if blend >= 0.999 then
-    drawAt(c < 0, alpha)
-  else
-    -- Crossfade between the upright left and right poses near the vertical.
-    -- The silhouette is the same plane; only the asymmetric cockpit/fin detail
-    -- swaps sides, so this avoids the hard "flip" when looking straight up.
-    local mirrorMain = c < 0
-    drawAt(mirrorMain, alpha * (0.5 + 0.5 * blend))
-    drawAt(not mirrorMain, alpha * (0.5 - 0.5 * blend))
-  end
+  local visual = plane.spec and plane.spec.visual
+  local colors = opts.colors or (visual and visual.palette) or TEAM[plane.team == 1 and "player" or "enemy"]
+  PlaneArt.draw(plane, time, { colors = colors, alpha = opts.alpha })
 end
 
 -- Draw all wrapping copies of a plane. World is toroidal, so a plane at x=2
@@ -347,3 +183,4 @@ function Sprites.drawCloudCopies(cloud, alphaMul)
 end
 
 return Sprites
+

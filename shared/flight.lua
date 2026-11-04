@@ -5,41 +5,51 @@
 
 local C = require("shared.constants")
 local M = require("shared.mathx")
+local Aircraft = require("shared.aircraft")
 
 local Flight = {}
 local P = C.PLANE
 
+local function specOf(plane)
+  return (plane.spec and plane.spec.stats) or P
+end
+
 local function partFactor(plane, part)
+  local S = specOf(plane)
   local hp = plane.parts[part] or 0
-  return M.clamp(hp / P.partHp, 0, 1)
+  return M.clamp(hp / S.partHp, 0, 1)
 end
 
 function Flight.new(opts)
   opts = opts or {}
-  local maxHp = opts.hp or P.hp
+  local spec = Aircraft.get(opts.planeType or opts.aircraft)
+  local S = spec.stats
+  local maxHp = opts.hp or S.hp
   local plane = {
     id = opts.id,
     name = opts.name or "Pilot",
+    planeType = spec.id,
+    spec = spec,
     team = opts.team or opts.id or 1,
     x = opts.x or C.WORLD.w * 0.5,
     y = opts.y or C.WORLD.h * 0.5,
     vx = opts.vx or math.cos(opts.angle or 0) * (opts.speed or 120),
     vy = opts.vy or math.sin(opts.angle or 0) * (opts.speed or 120),
     angle = opts.angle or 0,
-    radius = P.radius,
+    radius = S.radius,
     throttle = opts.throttle or 0.65,
     pitchVel = 0,
     hp = maxHp,
     maxHp = maxHp,
     baseHp = maxHp,
     parts = {
-      engine = P.partHp,
-      wing = P.partHp,
-      tail = P.partHp,
-      guns = P.partHp,
+      engine = S.partHp,
+      wing = S.partHp,
+      tail = S.partHp,
+      guns = S.partHp,
     },
-    ammo = P.ammo,
-    maxAmmo = P.maxAmmo,
+    ammo = S.ammo,
+    maxAmmo = S.maxAmmo,
     fireTimer = 0,
     heat = 0,
     jammed = 0,
@@ -57,20 +67,21 @@ function Flight.new(opts)
 end
 
 function Flight.reset(plane, x, y, angle)
+  local S = specOf(plane)
   plane.x, plane.y = x, y
   plane.angle = angle or 0
   plane.vx = math.cos(plane.angle) * 120
   plane.vy = math.sin(plane.angle) * 120
   plane.throttle = 0.65
   plane.pitchVel = 0
-  plane.hp = plane.baseHp or P.hp
+  plane.hp = plane.baseHp or S.hp
   plane.maxHp = plane.hp
-  plane.parts.engine = P.partHp
-  plane.parts.wing = P.partHp
-  plane.parts.tail = P.partHp
-  plane.parts.guns = P.partHp
-  plane.ammo = P.ammo
-  plane.maxAmmo = P.maxAmmo
+  plane.parts.engine = S.partHp
+  plane.parts.wing = S.partHp
+  plane.parts.tail = S.partHp
+  plane.parts.guns = S.partHp
+  plane.ammo = S.ammo
+  plane.maxAmmo = S.maxAmmo
   plane.fireTimer = 0
   plane.heat = 0
   plane.jammed = 0
@@ -115,8 +126,9 @@ function Flight.canFire(plane)
 end
 
 function Flight.fireInterval(plane)
+  local S = specOf(plane)
   local guns = Flight.gunFactor(plane)
-  return P.fireInterval * (1 + (1 - guns) * 1.4)
+  return S.fireInterval * (1 + (1 - guns) * 1.4)
 end
 
 function Flight.applyDamage(plane, part, amount)
@@ -136,6 +148,7 @@ end
 
 function Flight.step(plane, input, dt)
   if not plane.alive then return end
+  local P = specOf(plane)
 
   if (plane.jammed or 0) > 0 then
     plane.jammed = plane.jammed - dt

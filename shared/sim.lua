@@ -1,4 +1,4 @@
--- Deterministic world simulation. The dedicated server owns it; solo play uses
+﻿-- Deterministic world simulation. The dedicated server owns it; solo play uses
 -- the same code locally. Rendering and UI never mutate it directly.
 
 local C = require("shared.constants")
@@ -35,8 +35,8 @@ function Sim:addPlane(opts)
   local plane = Flight.new(opts)
   plane.id = opts.id or (#self.planeOrder + 1)
   plane.team = opts.team or plane.id
-  plane.x = M.clamp(plane.x, C.WORLD.wallLeft + C.PLANE.radius, C.WORLD.wallRight - C.PLANE.radius)
-  plane.y = M.clamp(plane.y, C.PLANE.radius, C.WORLD.groundY - C.PLANE.radius)
+  plane.x = M.clamp(plane.x, C.WORLD.wallLeft + plane.radius, C.WORLD.wallRight - plane.radius)
+  plane.y = M.clamp(plane.y, plane.radius, C.WORLD.groundY - plane.radius)
   self.planes[plane.id] = plane
   self.planeOrder[#self.planeOrder + 1] = plane.id
   return plane
@@ -128,8 +128,8 @@ function Sim:step(inputs, dt)
       local input = inputs and inputs[id]
       Flight.step(plane, input or plane.lastInput, dt)
       plane.lastInput = input or plane.lastInput
-      if plane.alive and plane.y + C.PLANE.radius >= C.WORLD.groundY then
-        plane.y = C.WORLD.groundY - C.PLANE.radius
+      if plane.alive and plane.y + plane.radius >= C.WORLD.groundY then
+        plane.y = C.WORLD.groundY - plane.radius
         plane.hp = 0
         plane.alive = false
         events[#events + 1] = {
@@ -137,10 +137,10 @@ function Sim:step(inputs, dt)
           x = plane.x, y = C.WORLD.groundY,
         }
       elseif plane.alive
-        and (plane.x <= C.WORLD.wallLeft + C.PLANE.radius
-          or plane.x >= C.WORLD.wallRight - C.PLANE.radius) then
-        plane.x = M.clamp(plane.x, C.WORLD.wallLeft + C.PLANE.radius,
-          C.WORLD.wallRight - C.PLANE.radius)
+        and (plane.x <= C.WORLD.wallLeft + plane.radius
+          or plane.x >= C.WORLD.wallRight - plane.radius) then
+        plane.x = M.clamp(plane.x, C.WORLD.wallLeft + plane.radius,
+          C.WORLD.wallRight - plane.radius)
         plane.hp = 0
         plane.alive = false
         events[#events + 1] = {
@@ -289,3 +289,5 @@ function Sim:resetBullets()
 end
 
 return Sim
+
+

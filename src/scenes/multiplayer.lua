@@ -36,7 +36,7 @@ function Multiplayer:enter()
   self.flowDone = false
   if self.client then self.client.forceBrowser = false end
 
-  local ok = self.client:connect(Settings.data.serverHost, Settings.data.serverPort, Settings.data.callsign)
+  local ok = self.client:connect(Settings.data.serverHost, Settings.data.serverPort, Settings.data.callsign, Settings.data.aircraft)
   if not ok then
     self.phase = "error"
     self.message = self.client.errorMessage or "Connection failed."
@@ -67,7 +67,7 @@ function Multiplayer:retry()
   self.inMatch = false
   self.roomSettingsOpen = false
   self.connectStarted = love.timer.getTime()
-  local ok = self.client:connect(Settings.data.serverHost, Settings.data.serverPort, Settings.data.callsign)
+  local ok = self.client:connect(Settings.data.serverHost, Settings.data.serverPort, Settings.data.callsign, Settings.data.aircraft)
   if not ok then
     self.phase = "error"
     self.message = self.client.errorMessage or "Connection failed."
@@ -721,6 +721,7 @@ function Multiplayer:mousepressed(x, y)
 end
 
 return Multiplayer
+
 
 
 
