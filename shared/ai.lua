@@ -41,8 +41,15 @@ function AI.input(plane, target, sim, state, dt)
   local desired
   local throttle = 0.78
   local fire = false
+  local groundClearance = C.WORLD.groundY - plane.y
 
-  if speed < 100 or plane.stalling then
+  if groundClearance < 110 then
+    -- Pull up with priority over chasing. A demo plane should never plow into
+    -- the deck while following a target or a patrol point.
+    local noseX = plane.x + math.cos(plane.angle) * 120
+    desired = M.angleTo(plane.x, plane.y, noseX, C.WORLD.groundY - 170)
+    throttle = 1
+  elseif speed < 100 or plane.stalling then
     -- Energy recovery beats everything else. Dive slightly and run full power.
     desired = 0.45
     throttle = 1
@@ -72,7 +79,8 @@ function AI.input(plane, target, sim, state, dt)
     else
       if state.patrolTimer <= 0 then
         state.patrolX = sim.rng:range(120, sim.w - 120)
-        state.patrolY = sim.rng:range(80, sim.h - 80)
+        local maxPatrolY = math.min(sim.h - 80, C.WORLD.groundY - 120)
+        state.patrolY = sim.rng:range(80, maxPatrolY)
         state.patrolTimer = sim.rng:range(3, 6)
       end
       desired = M.angleTo(plane.x, plane.y, state.patrolX, state.patrolY)

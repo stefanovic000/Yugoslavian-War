@@ -5,9 +5,9 @@
 
 local C = {
   GAME_NAME = "Yugoslavian War",
-  VERSION = "0.2.3",
+  VERSION = "0.2.4",
 
-  WORLD = { w = 800, h = 450, scale = 0.8, groundY = 365 },
+  WORLD = { w = 800, h = 450, scale = 0.8, groundY = 375 },
   SPAWNS = {
     { x = 60, y = 120, angle = 0 },
     { x = 740, y = 330, angle = math.pi },
@@ -27,7 +27,7 @@ local C = {
 
   PLANE = {
     length = 34,
-    radius = 10.5,
+    radius = 10.0,
     hp = 120,
     partHp = 60,
     stallSpeed = 75,

@@ -25,6 +25,7 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
 - **Low ground** at the bottom of the arena. Touch it and the aircraft explodes and respawns.
+- Aircraft are **5% smaller** than the original silhouette, with a matching smaller collision radius.
 - **Cloud cover** that actually hides aircraft. Cloud positions and per-plane visibility are server-authoritative.
 - **Energy flight model**: thrust along the nose, gravity, lift, drag, turn drag and engine braking.
 - **Modular damage**: engine, wing, tail and guns each have their own health and affect flight.
@@ -145,7 +146,7 @@ configured for TCP 7777.
 - **Damage:** 120 hull, with separate engine, wing, tail and gun health.
 - **Clouds:** server-generated puffs; the server sends their positions and each
   plane's `hidden` flag in snapshots. The client never decides visibility alone.
-- **Ground:** a low strip at `y = 365`; contact is a crash, not a kill. The
+- **Ground:** a low strip at `y = 375`; contact is a crash, not a kill. The
   aircraft explodes and starts a respawn.
 - **Arena:** 800×450 world units rendered at 0.8× into a 640×360 pixel viewport.
   Horizontal wrap, bounded vertical space, fixed 60 Hz simulation.
@@ -173,7 +174,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 37 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 38 unit tests (flight, hitboxes, clouds, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 
@@ -220,5 +221,5 @@ docs/                      screenshots and debugging guide
 
 ## Status
 
-Version **0.2.3**. The game is in active playtesting: flight feel, network
+Version **0.2.4**. The game is in active playtesting: flight feel, network
 visibility, respawns, gun heat and room lifecycle are the current focus.

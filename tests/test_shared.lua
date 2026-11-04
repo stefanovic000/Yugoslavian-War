@@ -238,6 +238,27 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
+  name = "AI pulls up near the ground",
+  fn = function()
+    local AI = require("shared.ai")
+    local sim = newSim(10)
+    local p = sim:addPlane({
+      id = 1, x = 300, y = C.WORLD.groundY - 55,
+      angle = 0, speed = 130, throttle = 0.7,
+    })
+    local input = AI.input(p, nil, sim, AI.newState(), C.TICK)
+    assert(input.pitch < 0, "AI did not pitch up near the ground")
+    assert(input.throttle == 1, "AI did not apply power near the ground")
+
+    local high = sim:addPlane({ id = 2, x = 300, y = 100, angle = 0, speed = 130, throttle = 0.7 })
+    local patrolState = AI.newState()
+    patrolState.patrolTimer = 0
+    AI.input(high, nil, sim, patrolState, C.TICK)
+    assert(patrolState.patrolY <= C.WORLD.groundY - 120, "AI patrol target is below the ground margin")
+  end,
+}
+
+cases[#cases + 1] = {
   name = "left-facing pitch signs are plane-relative",
   fn = function()
     local sim = newSim(13)

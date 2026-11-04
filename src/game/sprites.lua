@@ -178,6 +178,7 @@ function Sprites.drawPlane(plane, time, opts)
     else
       love.graphics.rotate(plane.angle)
     end
+    love.graphics.scale(0.95, 0.95)
     drawBody(a)
     love.graphics.pop()
   end
