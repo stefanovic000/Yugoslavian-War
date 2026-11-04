@@ -211,10 +211,10 @@ function Multiplayer:update(dt)
   elseif self.phase == "lobby" then
     if not self.roomState then return end
     if self.roomSettingsOpen then
-      if UI.hit(mx, my, 188, 112, 264, 24) then self.hover = "mode" end
-      if UI.hit(mx, my, 246, 154, 34, 24) then self.hover = "botsMinus" end
-      if UI.hit(mx, my, 360, 154, 34, 24) then self.hover = "botsPlus" end
-      if UI.hit(mx, my, 270, 198, 100, 24) then self.hover = "roomClose" end
+      if UI.hit(mx, my, 188, 134, 264, 24) then self.hover = "mode" end
+      if UI.hit(mx, my, 246, 168, 34, 24) then self.hover = "botsMinus" end
+      if UI.hit(mx, my, 360, 168, 34, 24) then self.hover = "botsPlus" end
+      if UI.hit(mx, my, 270, 206, 100, 24) then self.hover = "roomClose" end
       return
     end
     if UI.hit(mx, my, 36, 310, 100, 24) then self.hover = "leave" end
@@ -224,7 +224,8 @@ function Multiplayer:update(dt)
     if UI.hit(mx, my, 436, 310, 100, 24) then self.hover = "settings" end
     if self.spectator and UI.hit(mx, my, 340, 310, 90, 24) then self.hover = "joinmatch" end
   else
-    if UI.hit(mx, my, 36, 310, 110, 24) then self.hover = "retry" end
+    if UI.hit(mx, my, 140, 208, 140, 26) then self.hover = "retry" end
+    if UI.hit(mx, my, 300, 208, 140, 26) then self.hover = "back" end
   end
 end
 
@@ -371,9 +372,20 @@ function Multiplayer:drawLobby()
 
   local function pilotList()
     local list = {}
-    for _, p in ipairs(room.players) do list[#list + 1] = p end
+    local counts = { [1] = 0, [2] = 0 }
+    for _, p in ipairs(room.players) do
+      list[#list + 1] = p
+      if p.team == 1 or p.team == 2 then counts[p.team] = counts[p.team] + 1 end
+    end
     for b = 1, (room.bots or 0) do
-      list[#list + 1] = { id = -b, name = "BOT " .. tostring(b), bot = true }
+      local team
+      if room.mode == "2v2" then
+        team = (counts[1] <= counts[2]) and 1 or 2
+        counts[team] = counts[team] + 1
+      end
+      list[#list + 1] = {
+        id = -b, name = "BOT " .. tostring(b), bot = true, team = team,
+      }
     end
     return list
   end
@@ -410,6 +422,11 @@ function Multiplayer:drawLobby()
       local label = p.name
       if p.host then label = label .. "  *" end
       love.graphics.print(label, x + 10, ry)
+      if room.mode == "2v2" and (p.team == 1 or p.team == 2) then
+        UI.set(p.team == 1 and UI.C.teal or UI.C.orange)
+        love.graphics.setFont(UI.font(7, true))
+        love.graphics.printf(p.team == 1 and "B" or "R", x, ry + 2, w - 8, "right")
+      end
       if p.bot then
         UI.set(UI.C.cream2)
         love.graphics.setFont(UI.font(7))
@@ -478,8 +495,8 @@ function Multiplayer:drawLobby()
     hover = self.hover == "settings", font = UI.font(7, true),
   })
 
-  UI.small("UP DOWN SELECT   /   ENTER START   /   K KICK   /   R ROOM   /   ESC LEAVE", 36, 338,
-    UI.C.cream2, "left", 540)
+  UI.small("B/R TEAM   /   S SPEC   /   O ROOM   /   K KICK   /   ESC LEAVE", 36, 338,
+    UI.C.cream2, "left", 560)
 
   if self.roomSettingsOpen then self:drawRoomSettings() end
 end
@@ -568,17 +585,31 @@ function Multiplayer:keypressed(key)
       if self.roomState.host == self.client.selfId and member and member.id ~= self.roomState.host then
         self.client:send({ type = "kick", target = member.id })
       end
-    elseif key == "r" and self.roomState.host == self.client.selfId then
+    elseif key == "o" and self.roomState.host == self.client.selfId then
       self.roomSettingsOpen = true
+    elseif key == "b" or key == "r" then
+      local member = self:selectedMember()
+      if self.roomState.host == self.client.selfId and member then
+        self.client:send({
+          type = "assign", target = member.id, role = "player",
+          team = key == "b" and 1 or 2,
+        })
+      elseif self.roomState.mode == "2v2" then
+        self.client:send({ type = "pick_team", team = key == "b" and 1 or 2 })
+      end
+    elseif key == "s" and self.roomState.host == self.client.selfId then
+      local member = self:selectedMember()
+      if member and member.id ~= self.roomState.host then
+        self.client:send({ type = "assign", target = member.id, role = "spectator" })
+      end
+    elseif key == "p" and self.roomState.host == self.client.selfId then
+      local member = self:selectedMember()
+      if member then
+        self.client:send({ type = "assign", target = member.id, role = "player" })
+      end
     elseif key == "return" or key == "kpenter" then
       if self:canStart() then
         self.client:send({ type = "start" })
-      elseif self.spectator and self.roomState.status == "prep" then
-        self.client:send({ type = "join_match" })
-      end
-    elseif key == "j" then
-      if self.spectator and self.roomState.status == "prep" then
-        self.client:send({ type = "join_match" })
       end
     elseif key == "escape" then
       if self.roomSettingsOpen then
@@ -607,7 +638,7 @@ function Multiplayer:mousepressed(x, y)
     else
       for i = 1, 8 do
         local index = self.scroll + i
-        if self.rooms[index] and UI.hit(mx, my, 40, 92 + (i - 1) * 24, 560, 22) then
+        if self.rooms[index] and UI.hit(mx, my, 40, 99 + (i - 1) * 24, 560, 22) then
           self.selected = index
           self:joinSelected()
           return
@@ -618,15 +649,17 @@ function Multiplayer:mousepressed(x, y)
     if not self.roomState then return end
     local room = self.roomState
     if self.roomSettingsOpen then
-      if room.host == self.client.selfId and UI.hit(mx, my, 188, 112, 264, 24) then
-        local mode = room.mode == "2v2" and "ffa" or "2v2"
+      if room.host == self.client.selfId and UI.hit(mx, my, 188, 134, 264, 24) then
+        local mode = "ffa"
+        if room.mode == "ffa" then mode = "1v1"
+        elseif room.mode == "1v1" then mode = "2v2" end
         self:sendRoomSettings(mode, room.bots or 0)
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 154, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 168, 34, 24) then
         self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1))
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 154, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 168, 34, 24) then
         local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
         self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1))
-      elseif UI.hit(mx, my, 270, 198, 100, 24) then
+      elseif UI.hit(mx, my, 270, 206, 100, 24) then
         self.roomSettingsOpen = false
       end
       return

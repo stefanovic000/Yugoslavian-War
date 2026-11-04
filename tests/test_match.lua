@@ -4,30 +4,31 @@ local Match = require("server.match")
 local cases = {}
 
 cases[#cases + 1] = {
-  name = "five rounds reach prep and champion",
+  name = "five rounds use prep and finish to lobby",
   fn = function()
     local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 42)
-    assert(m.round == 1 and m.phase == "round")
+    assert(m.round == 1 and m.phase == "prep")
     assert(#m.players == 2)
     assert(m.sim:getPlane(1) and m.sim:getPlane(2))
+    m:update(C.ROUND_BREAK + 0.01)
+    assert(m.phase == "round", "round 1 did not begin after prep")
 
     for round = 1, C.ROUNDS do
       m.scores[1].roundKills = C.ROUND_KILLS
       m:stepRound(C.TICK)
       if round < C.ROUNDS then
-        assert(m.phase == "break", "expected break after round " .. round)
-        m.breakTime = 0.001
-        m:update(0.01)
+        assert(m.phase == "prep", "expected prep after round " .. round)
+        assert(m.prepTime > 2.5, "prep should be about 3 seconds")
+        m:update(C.ROUND_BREAK + 0.01)
         assert(m.round == round + 1, "round did not advance")
+        assert(m.phase == "round", "round did not begin after prep")
       end
     end
 
-    assert(m.phase == "prep", "expected prep after round 5")
-    assert(m.prepTime > 9, "prep should be about 10 seconds")
+    assert(m.phase == "finished", "match should finish after round 5")
     assert(m.champion ~= nil, "champion missing")
     assert(m:buildSnapshot().champion ~= nil)
-    m.prepTime = 0.001
-    assert(m:update(0.01) == "finished", "prep should finish the old match")
+    assert(m:update(0.01) == "finished", "finished match should return finished")
   end,
 }
 
@@ -35,6 +36,7 @@ cases[#cases + 1] = {
   name = "inputs are clamped and acked",
   fn = function()
     local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 7)
+    m:beginRound()
     m:queueInput(1, { seq = 1, throttle = 5, pitch = -9, fire = true })
     local st = m.inputs[1]
     assert(#st.queue == 1)
@@ -163,6 +165,22 @@ cases[#cases + 1] = {
     assert(m.roundWinner == 1, "team 1 should win the round")
     assert(m.scores[1].wins == 1, "team member did not receive the win")
     assert(m.phase ~= "round", "round did not end")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "1v1 starts with preparation and opposite spawns",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A", team = 1 },
+      { id = 2, name = "B", team = 2 },
+    }, 27, { mode = "1v1" })
+    assert(m.mode == "1v1" and not m.teamMode)
+    assert(m.phase == "prep" and m.prepTime > 2.5)
+    local a, b = m.sim:getPlane(1), m.sim:getPlane(2)
+    assert(a.x < b.x, "1v1 pilots should start on opposite sides")
+    m:update(C.ROUND_BREAK + 0.01)
+    assert(m.phase == "round")
   end,
 }
 

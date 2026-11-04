@@ -20,7 +20,8 @@ procedurally. There are no large art packs and no runtime downloads.
 
 - **Solo test flight** against a demo AI that manages throttle, energy and stall recovery.
 - **Online rooms** for 2–4 pilots: create, join, spectate and start without a ready-up step.
-- **2v2 team mode** with host-controlled bot fill; add or remove bots in Room Settings.
+- **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 5 everyone returns to the same lobby with teams and settings preserved.
+- **Host-controlled bot fill and team assignment**, plus hosted spectator assignment. Joined pilots can pick Blue/Red with B/R.
 - **Kill-scored matches**: first to 5 kills/team kills wins a round, 5 rounds per match, then a full reset.
 - **3-second respawns** for every pilot, solo and online.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
@@ -184,7 +185,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 46 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
+test.bat        :: 47 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 

@@ -260,16 +260,26 @@ function Server:playerInfo(room)
     if c then
       list[#list + 1] = {
         id = id, name = c.name or ("Pilot" .. id), isBot = false,
-        team = teamMode and (((i - 1) % 2) + 1) or id,
+        team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
       }
     end
   end
   local humans = #list
+  local counts = { [1] = 0, [2] = 0 }
+  for i = 1, humans do
+    local t = list[i].team
+    if t == 1 or t == 2 then counts[t] = counts[t] + 1 end
+  end
   for b = 1, (room.bots or 0) do
-    local index = humans + b
+    local team
+    if teamMode then
+      team = (counts[1] <= counts[2]) and 1 or 2
+      counts[team] = counts[team] + 1
+    else
+      team = -b
+    end
     list[#list + 1] = {
-      id = -b, name = "BOT " .. tostring(b), isBot = true,
-      team = teamMode and (((index - 1) % 2) + 1) or (-b),
+      id = -b, name = "BOT " .. tostring(b), isBot = true, team = team,
     }
   end
   return list
@@ -283,7 +293,7 @@ function Server:roomState(room)
     if c then
       players[#players + 1] = {
         id = id, name = c.name or ("Pilot" .. id), host = (id == room.hostId),
-        bot = false, team = teamMode and (((i - 1) % 2) + 1) or id,
+        bot = false, team = room.playerTeams[id] or (teamMode and (((i - 1) % 2) + 1) or id),
       }
     end
   end
@@ -447,6 +457,7 @@ function Server:createRoom(client, msg)
     hostId = client.id,
     players = { client.id },
     spectators = {},
+    playerTeams = { [client.id] = 1 },
     bots = 0,
     mode = "ffa",
     bannedIps = {},
@@ -488,6 +499,16 @@ function Server:joinRoom(client, msg)
   else
     room.players[#room.players + 1] = client.id
     client.spectator = false
+    if room.mode == "2v2" then
+      local c1, c2 = 0, 0
+      for _, pid in ipairs(room.players) do
+        if room.playerTeams[pid] == 1 then c1 = c1 + 1
+        elseif room.playerTeams[pid] == 2 then c2 = c2 + 1 end
+      end
+      room.playerTeams[client.id] = (c1 <= c2) and 1 or 2
+    else
+      room.playerTeams[client.id] = client.id
+    end
     -- A human takes priority over a reserved bot slot.
     if room.bots and #room.players + room.bots > C.MAX_PLAYERS then
       room.bots = math.max(0, C.MAX_PLAYERS - #room.players)
@@ -677,7 +698,12 @@ function Server.handlers.start(self, client)
     return
   end
   if room.status ~= "lobby" then return end
-  if #room.players + (room.bots or 0) < C.MIN_PLAYERS then
+  local total = #room.players + (room.bots or 0)
+  if room.mode == "1v1" and total ~= 2 then
+    self:send(client, { type = "error", message = "1v1 needs exactly 2 pilots or bots." })
+    return
+  end
+  if total < C.MIN_PLAYERS then
     self:send(client, { type = "error", message = "At least 2 pilots or bots are needed." })
     return
   end
@@ -688,14 +714,81 @@ function Server.handlers.room_settings(self, client, msg)
   if not client.hello then return end
   local room = client.room and self.rooms[client.room]
   if not room or room.hostId ~= client.id or room.status ~= "lobby" then return end
-  local mode = msg.mode == "2v2" and "2v2" or "ffa"
+  local mode = (msg.mode == "2v2" and "2v2") or (msg.mode == "1v1" and "1v1") or "ffa"
   local bots = math.floor(tonumber(msg.bots) or room.bots or 0)
   bots = math.max(0, math.min(C.MAX_PLAYERS, bots))
   bots = math.min(bots, C.MAX_PLAYERS - #room.players)
   room.mode = mode
   room.bots = bots
+  local teamIndex = 0
+  for _, id in ipairs(room.players) do
+    if mode == "2v2" then
+      teamIndex = teamIndex + 1
+      room.playerTeams[id] = ((teamIndex - 1) % 2) + 1
+    else
+      room.playerTeams[id] = id
+    end
+  end
   self:broadcastRoom(room)
   self:broadcastRooms()
+end
+
+function Server:assignRoomMember(room, targetId, role, team)
+  local isPlayer, isSpectator = false, false
+  for _, id in ipairs(room.players) do if id == targetId then isPlayer = true; break end end
+  for _, id in ipairs(room.spectators) do if id == targetId then isSpectator = true; break end end
+  if not isPlayer and not isSpectator then return false end
+
+  if team == 1 or team == 2 then
+    room.playerTeams[targetId] = team
+  end
+
+  if role == "spectator" and isPlayer then
+    if targetId == room.hostId then return false end
+    for i, id in ipairs(room.players) do
+      if id == targetId then table.remove(room.players, i); break end
+    end
+    room.spectators[#room.spectators + 1] = targetId
+    local c = self.clients[targetId]
+    if c then c.spectator = true end
+  elseif role == "player" and isSpectator then
+    if #room.players >= C.MAX_PLAYERS then return false end
+    for i, id in ipairs(room.spectators) do
+      if id == targetId then table.remove(room.spectators, i); break end
+    end
+    room.players[#room.players + 1] = targetId
+    local c = self.clients[targetId]
+    if c then c.spectator = false end
+    if room.bots and #room.players + room.bots > C.MAX_PLAYERS then
+      room.bots = math.max(0, C.MAX_PLAYERS - #room.players)
+    end
+  end
+  return true
+end
+
+function Server.handlers.assign(self, client, msg)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.hostId ~= client.id or room.status ~= "lobby" then return end
+  local target = tonumber(msg.target)
+  if not target then return end
+  local role = (msg.role == "spectator") and "spectator"
+    or (msg.role == "player") and "player" or nil
+  local team = tonumber(msg.team)
+  if self:assignRoomMember(room, target, role, team) then
+    self:broadcastRoom(room)
+    self:broadcastRooms()
+  end
+end
+
+function Server.handlers.pick_team(self, client, msg)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.status ~= "lobby" or room.mode ~= "2v2" then return end
+  local team = tonumber(msg.team)
+  if team ~= 1 and team ~= 2 then return end
+  room.playerTeams[client.id] = team
+  self:broadcastRoom(room)
 end
 
 function Server.handlers.kick(self, client, msg)
@@ -746,11 +839,7 @@ function Server:tickMatches(dt)
       room.status = (room.match and room.match.phase == "prep") and "prep" or "playing"
 
       if result == "finished" then
-        if #room.players >= C.MIN_PLAYERS then
-          self:startMatch(room)
-        else
-          self:cancelMatch(room, "Not enough pilots for another match.")
-        end
+        self:cancelMatch(room, "Match complete. Back to lobby.")
       end
     end
   end

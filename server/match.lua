@@ -33,6 +33,7 @@ function Match.new(players, seed, opts)
     bots = {},
     aiStates = {},
     teamMode = teamMode,
+    mode = opts.mode or "ffa",
     teamKills = { [1] = 0, [2] = 0 },
     teamWins = { [1] = 0, [2] = 0 },
     sim = Sim.new({ seed = seed, teamMode = teamMode }),
@@ -57,7 +58,7 @@ function Match.new(players, seed, opts)
     end
     m:addPlayer(p.id, p.name, i, team, p.isBot == true)
   end
-  m:startRound(1)
+  m:startRound(1, true)
   return m
 end
 
@@ -96,6 +97,14 @@ function Match:removePlayer(id)
 end
 
 function Match:slotFor(id, index)
+  if self.mode == "1v1" then
+    local left = (index == 1)
+    return {
+      x = left and (C.WORLD.wallLeft + 60) or (C.WORLD.wallRight - 60),
+      y = 260,
+      angle = left and 0 or math.pi,
+    }
+  end
   if self.teamMode then
     local team = self.teams[id] or 1
     local teamIndex = 0
@@ -116,11 +125,23 @@ function Match:slotFor(id, index)
   return slots[((index - 1) % #slots) + 1]
 end
 
-function Match:startRound(number)
-  self.round = number
+function Match:beginRound()
   self.phase = "round"
-  self.roundWinner = nil
+  self.prepTime = 0
+  for _, id in ipairs(self.players) do
+    local p = self.sim:getPlane(id)
+    if p then p.invuln = 2 end
+  end
+  self.events[#self.events + 1] = {
+    type = "round_start", round = self.round,
+  }
+end
+
+function Match:startRound(number, withPrep)
+  self.round = number
   self.teamKills = { [1] = 0, [2] = 0 }
+  self.phase = withPrep and "prep" or "round"
+  self.prepTime = withPrep and C.ROUND_BREAK or 0
 
   self.sim:resetBullets()
   self.sim:resetPickups()
@@ -152,7 +173,9 @@ function Match:startRound(number)
     if self.aiStates[id] then self.aiStates[id] = AI.newState() end
   end
 
-  self.events[#self.events + 1] = {
+  self.events[#self.events + 1] = withPrep and {
+    type = "round_prep", round = number,
+  } or {
     type = "round_start", round = number,
   }
 end
@@ -210,15 +233,14 @@ function Match:finishRound(winner)
       end
     end
     self.champion = bestId
-    self.phase = "prep"
-    self.prepTime = C.PREP_TIME
+    self.phase = "finished"
+    self.prepTime = 0
     self.events[#self.events + 1] = {
       type = "match_end", champion = bestId, scores = self.scores,
       teamMode = self.teamMode, teamWins = self.teamWins,
     }
   else
-    self.phase = "break"
-    self.breakTime = C.ROUND_BREAK
+    self:startRound(self.round + 1, true)
   end
 end
 
@@ -343,22 +365,18 @@ end
 function Match:update(dt)
   if self.phase == "round" then
     self:stepRound(dt)
-  elseif self.phase == "break" then
-    self.breakTime = self.breakTime - dt
-    if self.breakTime <= 0 then
-      self:startRound(self.round + 1)
-    end
   elseif self.phase == "prep" then
     self.prepTime = self.prepTime - dt
     if self.prepTime <= 0 then
-      return "finished"
+      self:beginRound()
     end
+  elseif self.phase == "finished" then
+    return "finished"
   end
   return nil
 end
 
 function Match:timer()
-  if self.phase == "break" then return self.breakTime end
   if self.phase == "prep" then return self.prepTime end
   return 0
 end

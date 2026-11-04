@@ -1045,33 +1045,18 @@ function NetMatch:drawHud()
     love.graphics.printf(self.banner, 0, 228, 640, "center")
   end
 
-  if self.phase == "break" then
-    love.graphics.setFont(UI.font(12, true))
-    UI.set(UI.C.cream)
-    love.graphics.printf(string.format("NEXT ROUND IN %.0f", math.max(0, self.timer or 0)), 0, 260, 640, "center")
-  elseif self.phase == "prep" then
+  if self.phase == "prep" then
     UI.set(UI.C.ink, 0.72)
-    love.graphics.rectangle("fill", 160, 236, 320, 60)
+    love.graphics.rectangle("fill", 160, 236, 320, 46)
     UI.set(UI.C.orange)
-    love.graphics.rectangle("line", 160.5, 236.5, 319, 59)
+    love.graphics.rectangle("line", 160.5, 236.5, 319, 45)
     love.graphics.setFont(UI.font(12, true))
     UI.set(UI.C.orange)
-    love.graphics.printf("MATCH OVER", 160, 244, 320, "center")
-    love.graphics.setFont(UI.font(8))
+    love.graphics.printf("ROUND " .. tostring(self.round or 1), 160, 244, 320, "center")
+    love.graphics.setFont(UI.font(9))
     UI.set(UI.C.cream)
-    local championName = (self.teamMode and self.champion)
-      and ("TEAM " .. tostring(self.champion))
-      or (self.champion and self.names[self.champion] or "NOBODY")
-    love.graphics.printf("CHAMPION: " .. championName:upper(), 160, 262, 320, "center")
-    love.graphics.printf(string.format("NEXT MATCH IN %.0f", math.max(0, self.timer or 0)), 160, 274, 320, "center")
-    if self.spectator and not self.joinQueued then
-      UI.button(244, 300, 152, 24, "JOIN NEXT MATCH  [J]", {
-        hover = self.hover == "join", font = UI.font(7, true),
-      })
-    elseif self.joinQueued then
-      UI.set(UI.C.green)
-      love.graphics.printf("YOU ARE IN THE NEXT MATCH", 160, 300, 320, "center")
-    end
+    love.graphics.printf(string.format("STARTS IN %.0f", math.max(0, math.ceil(self.timer or 0))),
+      160, 262, 320, "center")
   end
 
   if self.flash > 0 then
