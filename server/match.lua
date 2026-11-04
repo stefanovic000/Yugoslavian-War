@@ -23,7 +23,8 @@ end
 
 function Match.new(players, seed, opts)
   opts = opts or {}
-  local teamMode = opts.mode == "2v2"
+  local demo = opts.mode == "demo"
+  local teamMode = not demo and opts.mode == "2v2"
   local m = setmetatable({
     players = {},
     info = {},
@@ -32,6 +33,7 @@ function Match.new(players, seed, opts)
     teams = {},
     bots = {},
     aiStates = {},
+    demo = demo,
     teamMode = teamMode,
     mode = opts.mode or "ffa",
     rounds = opts.rounds or C.ROUNDS,
@@ -327,6 +329,25 @@ function Match:enemyTarget(plane)
 end
 
 function Match:stepRound(dt)
+  local finishedRespawns = {}
+  for id, t in pairs(self.respawns) do
+    local remaining = t - dt
+    if remaining <= 0 then
+      self.respawns[id] = nil
+      finishedRespawns[#finishedRespawns + 1] = id
+    else
+      self.respawns[id] = remaining
+    end
+  end
+  for _, id in ipairs(finishedRespawns) do self:respawnPlane(id) end
+
+  if self.demo then
+    for _, id in ipairs(self.players) do
+      local p = self.sim:getPlane(id)
+      if p and p.alive then p.ammo = p.maxAmmo end
+    end
+  end
+
   local inputs = {}
   for _, id in ipairs(self.players) do
     local st = self.inputs[id]
@@ -369,6 +390,16 @@ function Match:stepRound(dt)
         end
       end
     end
+  end
+
+  if self.demo then
+    for _, id in ipairs(self.players) do
+      local p = self.sim:getPlane(id)
+      if p and not p.alive and not self.respawns[id] then
+        self.respawns[id] = C.PLANE.respawnTime
+      end
+    end
+    return
   end
 
   local winner

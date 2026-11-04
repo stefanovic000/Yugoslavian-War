@@ -18,6 +18,7 @@ procedurally. There are no large art packs and no runtime downloads.
 
 ## Features
 
+- **Demo mode**: endless FFA practice with three-second respawns, unlimited ammo and bots for server playtesting.
 - **Solo test flight** against a demo AI that manages throttle, energy and stall recovery.
 - **Online rooms** for 2â€“4 pilots: create, join, spectate, pick an aircraft and ready up before the host starts.
 - **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 6 everyone returns to the same lobby with teams and settings preserved.
@@ -189,7 +190,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 60 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
+test.bat        :: 61 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 

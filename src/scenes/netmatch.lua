@@ -916,7 +916,11 @@ function NetMatch:drawHud()
   love.graphics.rectangle("line", 236.5, 8.5, 167, 23)
   love.graphics.setFont(UI.font(9, true))
   UI.set(UI.C.cream)
-  love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, self.rounds or C.ROUNDS), 236, 14, 168, "center")
+  if self.mode == "demo" then
+    love.graphics.printf("DEMO", 236, 14, 168, "center")
+  else
+    love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, self.rounds or C.ROUNDS), 236, 14, 168, "center")
+  end
   UI.set(UI.C.orange)
   local aliveAll, aliveTeams = 0, { [1] = 0, [2] = 0 }
   for id, v in pairs(self.visuals) do
@@ -1141,7 +1145,8 @@ function NetMatch:drawHud()
     love.graphics.rectangle("line", 160.5, 236.5, 319, 45)
     love.graphics.setFont(UI.font(12, true))
     UI.set(UI.C.orange)
-    love.graphics.printf("ROUND " .. tostring(self.round or 1), 160, 244, 320, "center")
+    love.graphics.printf(self.mode == "demo" and "DEMO STARTS IN" or ("ROUND " .. tostring(self.round or 1)),
+      160, 244, 320, "center")
     love.graphics.setFont(UI.font(9))
     UI.set(UI.C.cream)
     love.graphics.printf(string.format("STARTS IN %.0f", math.max(0, math.ceil(self.timer or 0))),
@@ -1269,4 +1274,5 @@ function NetMatch:mousepressed(x, y)
 end
 
 return NetMatch
+
 

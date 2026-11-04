@@ -558,9 +558,15 @@ function Multiplayer:drawLobby()
     or string.format("READY %d / %d", readyCount, #room.players), 40, 264)
   UI.set(UI.C.cream2)
   love.graphics.setFont(UI.font(7))
-  love.graphics.print(string.format("MODE %s   /   BOTS %d   /   BOT %s",
-    (room.mode or "FFA"):upper(), room.bots or 0,
-    (room.botDifficulty or "VETERAN"):upper()), 40, 276)
+  local modeLine
+  if room.mode == "demo" then
+    modeLine = "DEMO   /   RESPAWNS   /   INFINITE AMMO"
+  else
+    modeLine = string.format("MODE %s   /   BOTS %d   /   BOT %s",
+      (room.mode or "FFA"):upper(), room.bots or 0,
+      (room.botDifficulty or "VETERAN"):upper())
+  end
+  love.graphics.print(modeLine, 40, 276)
   if room.lastMvpName then
     UI.set(UI.C.orange)
     love.graphics.print("MATCH MVP  " .. tostring(room.lastMvpName):upper(), 40, 286)
@@ -774,7 +780,8 @@ function Multiplayer:mousepressed(x, y)
       if room.host == self.client.selfId and UI.hit(mx, my, 188, 116, 264, 24) then
         local mode = "ffa"
         if room.mode == "ffa" then mode = "1v1"
-        elseif room.mode == "1v1" then mode = "2v2" end
+        elseif room.mode == "1v1" then mode = "2v2"
+        elseif room.mode == "2v2" then mode = "demo" end
         self:sendRoomSettings(mode, room.bots or 0)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 144, 34, 24) then
         self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1))

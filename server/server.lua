@@ -784,7 +784,10 @@ function Server.handlers.room_settings(self, client, msg)
   if not client.hello then return end
   local room = client.room and self.rooms[client.room]
   if not room or room.hostId ~= client.id or room.status ~= "lobby" then return end
-  local mode = (msg.mode == "2v2" and "2v2") or (msg.mode == "1v1" and "1v1") or "ffa"
+  local mode = (msg.mode == "2v2" and "2v2")
+    or (msg.mode == "1v1" and "1v1")
+    or (msg.mode == "demo" and "demo")
+    or "ffa"
   local bots = math.floor(tonumber(msg.bots) or room.bots or 0)
   bots = math.max(0, math.min(C.MAX_PLAYERS, bots))
   bots = math.min(bots, C.MAX_PLAYERS - #room.players)
@@ -1026,5 +1029,6 @@ function Server:close()
 end
 
 return Server
+
 
 

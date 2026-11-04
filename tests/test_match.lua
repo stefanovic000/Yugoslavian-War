@@ -236,4 +236,28 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "demo mode respawns players and never ends the round",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A" }, { id = 2, name = "B" },
+    }, 46, { mode = "demo" })
+    assert(m.demo and not m.teamMode)
+    m:beginRound()
+    local victim = m.sim:getPlane(2)
+    victim.alive = false
+    victim.hp = 0
+    victim.ammo = 0
+    m:stepRound(C.TICK)
+    assert(m.phase == "round", "demo ended the round")
+    assert(m.respawns[2] and m.respawns[2] > 2, "demo did not schedule respawn")
+    victim.ammo = 0
+    m:stepRound(C.TICK)
+    assert(victim.ammo == victim.maxAmmo or not victim.alive, "demo did not refill ammo")
+    for _ = 1, 200 do m:stepRound(C.TICK) end
+    assert(m.sim:getPlane(2).alive, "demo did not respawn the pilot")
+    assert(m.phase == "round")
+  end,
+}
+
 return cases
