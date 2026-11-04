@@ -341,7 +341,9 @@ function NetMatch:onSnapshot(msg)
   for i, c in ipairs(msg.clouds or {}) do
     local localCloud = self.clouds and self.clouds.list[i]
     if localCloud then
-      localCloud.x, localCloud.y = c.x, c.y
+      -- Ignore sub-pixel corrections; they make the cloud-shadow mask shimmer.
+      if math.abs(c.x - localCloud.x) > 1.5 then localCloud.x = c.x end
+      if math.abs(c.y - localCloud.y) > 1.5 then localCloud.y = c.y end
     end
   end
 

@@ -71,8 +71,9 @@ local function firstCloudHit(viewer, angle, maxDist, clouds)
 end
 
 function Vision.outline(viewer, clouds, segments)
-  segments = segments or 96
+  segments = segments or 160
   local pts = {}
+  local raw = {}
   local insideCloud = clouds and Clouds.pointInside(clouds, viewer.x, viewer.y)
   for i = 0, segments - 1 do
     local a = -math.pi + (i / segments) * math.pi * 2
@@ -83,6 +84,15 @@ function Vision.outline(viewer, clouds, segments)
     else
       r = firstCloudHit(viewer, worldAngle, r, clouds)
     end
+    raw[i] = r
+  end
+
+  -- A tiny angular blur removes the raycast staircase at cloud edges without
+  -- visibly widening the shadow.
+  for i = 0, segments - 1 do
+    local a = -math.pi + (i / segments) * math.pi * 2
+    local worldAngle = viewer.angle + a
+    local r = (raw[(i - 1) % segments] + raw[i] * 2 + raw[(i + 1) % segments]) * 0.25
     pts[#pts + 1] = viewer.x + math.cos(worldAngle) * r
     pts[#pts + 1] = viewer.y + math.sin(worldAngle) * r
   end
