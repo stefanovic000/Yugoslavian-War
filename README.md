@@ -20,7 +20,10 @@ procedurally. There are no large art packs and no runtime downloads.
 
 - **Solo test flight** against a demo AI that manages throttle, energy and stall recovery.
 - **Online rooms** for 2–4 pilots: create, join, spectate and start without a ready-up step.
-- **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 5 everyone returns to the same lobby with teams and settings preserved.
+- **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 6 everyone returns to the same lobby with teams and settings preserved.
+- **Six-round matches** switch sides after round 3, with a small in-match notification.
+- **Bot difficulty** (Rookie / Veteran / Ace) and stronger ground/wall avoidance.
+- **Match MVP** shown on the war-result screen and as a small lobby tag.
 - **Host-controlled bot fill and team assignment**, plus hosted spectator assignment. Joined pilots can pick Blue/Red with B/R.
 - **One-life rounds**: last pilot/team flying wins the round; dead pilots spectate until the next round.
 - **Solo 3-second respawns**; online matches use one-life rounds and reset for the next round.
@@ -36,7 +39,7 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Modular damage**: engine, wing, tail and guns each have their own health and affect flight.
 - **Parachute ammo crates**, swept hitboxes and a fixed 60 Hz simulation.
 - **Host room settings** for FFA/2v2 and 0–3 bots, plus a separate Settings button.
-- **Settings**: callsign, server address/port, fullscreen, FPS counter, screen shake, rebindable flight controls and master/effects volume sliders.
+- **Settings**: callsign, server address/port, fullscreen, window resolution, FPS counter, screen shake, rebindable flight controls and master/effects volume sliders.
 - **Improved spectator camera**: follows the leader and switches targets with `[` and `]`.
 - **Debug toolkit**: console, live watches, hitbox/cloud debug draw, profiler, screenshots and crash reports.
 
@@ -100,7 +103,7 @@ copy of the game still shows localhost.
 2. Create a room, or select an open room and press **ENTER**.
 3. The host presses **START** when 2–4 pilots are in.
 4. Started rooms remain listed; joining one puts you in as a spectator.
-5. After round 5, spectators have 10 seconds to join the next match.
+5. After round 6, players return to the same lobby; the host can start the next match.
 
 Kicks are issued in the lobby with **KICK** or `K`. A kicked player is banned
 from that room for its lifetime.
@@ -185,7 +188,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 47 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
+test.bat        :: 48 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 

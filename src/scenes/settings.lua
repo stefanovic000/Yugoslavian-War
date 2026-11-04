@@ -290,7 +290,7 @@ end
 function SettingsScene:draw()
   self:drawBackground()
   UI.panel(56, 28, 528, 304)
-  UI.title("SETTINGS", 38, 24)
+  UI.title("SETTINGS", 30, 20)
 
   for i, name in ipairs(TABS) do
     UI.button(86 + (i - 1) * 112, 58, 104, 20, name, {

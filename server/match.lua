@@ -34,6 +34,9 @@ function Match.new(players, seed, opts)
     aiStates = {},
     teamMode = teamMode,
     mode = opts.mode or "ffa",
+    rounds = opts.rounds or C.ROUNDS,
+    botDifficulty = opts.botDifficulty or "veteran",
+    sidesSwapped = false,
     teamKills = { [1] = 0, [2] = 0 },
     teamWins = { [1] = 0, [2] = 0 },
     sim = Sim.new({ seed = seed, teamMode = teamMode }),
@@ -71,9 +74,9 @@ function Match:addPlayer(id, name, index, team, isBot)
   }
   self.teams[id] = team or id
   self.bots[id] = isBot == true or nil
-  if isBot then self.aiStates[id] = AI.newState() end
+  if isBot then self.aiStates[id] = AI.newState(self.botDifficulty) end
   self.scores[id] = {
-    wins = 0, kills = 0, roundKills = 0, team = team or id,
+    wins = 0, kills = 0, roundKills = 0, damage = 0, team = team or id,
   }
   self.inputs[id] = { queue = {}, last = nil, ack = 0 }
 end
@@ -97,8 +100,9 @@ function Match:removePlayer(id)
 end
 
 function Match:slotFor(id, index)
+  local swapped = self.sidesSwapped
   if self.mode == "1v1" then
-    local left = (index == 1)
+    local left = ((index == 1) ~= swapped)
     return {
       x = left and (C.WORLD.wallLeft + 60) or (C.WORLD.wallRight - 60),
       y = 260,
@@ -114,7 +118,7 @@ function Match:slotFor(id, index)
         if pid == id then break end
       end
     end
-    local left = team == 1
+    local left = (team == 1) ~= swapped
     return {
       x = left and (C.WORLD.wallLeft + 60) or (C.WORLD.wallRight - 60),
       y = (teamIndex % 2 == 1) and 140 or 380,
@@ -122,7 +126,11 @@ function Match:slotFor(id, index)
     }
   end
   local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
-  return slots[((index - 1) % #slots) + 1]
+  local slot = slots[((index - 1) % #slots) + 1]
+  if swapped then
+    return { x = C.WORLD.w - slot.x, y = slot.y, angle = slot.angle + math.pi }
+  end
+  return slot
 end
 
 function Match:beginRound()
@@ -142,6 +150,9 @@ function Match:startRound(number, withPrep)
   self.teamKills = { [1] = 0, [2] = 0 }
   self.phase = withPrep and "prep" or "round"
   self.prepTime = withPrep and C.ROUND_BREAK or 0
+  local swapped = number > math.floor(self.rounds / 2)
+  local changedSides = swapped ~= self.sidesSwapped
+  self.sidesSwapped = swapped
 
   self.sim:resetBullets()
   self.sim:resetPickups()
@@ -170,7 +181,7 @@ function Match:startRound(number, withPrep)
     self.inputs[id].queue = {}
     self.inputs[id].last = nil
     self.inputs[id].ack = 0
-    if self.aiStates[id] then self.aiStates[id] = AI.newState() end
+    if self.aiStates[id] then self.aiStates[id] = AI.newState(self.botDifficulty) end
   end
 
   self.events[#self.events + 1] = withPrep and {
@@ -178,6 +189,11 @@ function Match:startRound(number, withPrep)
   } or {
     type = "round_start", round = number,
   }
+  if changedSides then
+    self.events[#self.events + 1] = {
+      type = "sides_switched", round = number,
+    }
+  end
 end
 
 function Match:queueInput(id, msg)
@@ -217,7 +233,7 @@ function Match:finishRound(winner)
     winnerTeam = self.teamMode and winner or nil,
   }
 
-  if self.round >= C.ROUNDS then
+  if self.round >= self.rounds then
     local bestId, bestWins, bestKills = nil, -1, -1
     if self.teamMode then
       for team = 1, 2 do
@@ -233,11 +249,22 @@ function Match:finishRound(winner)
       end
     end
     self.champion = bestId
+
+    local mvp, mvpKills, mvpDamage = nil, -1, -1
+    for id, score in pairs(self.scores) do
+      local kills = score.kills or 0
+      local damage = score.damage or 0
+      if kills > mvpKills or (kills == mvpKills and damage > mvpDamage) then
+        mvp, mvpKills, mvpDamage = id, kills, damage
+      end
+    end
+    self.mvp = mvp
+
     self.phase = "match_end"
     self.endTime = C.ROUND_BREAK
     self.prepTime = 0
     self.events[#self.events + 1] = {
-      type = "match_end", champion = bestId, scores = self.scores,
+      type = "match_end", champion = bestId, mvp = mvp, scores = self.scores,
       teamMode = self.teamMode, teamWins = self.teamWins, mode = self.mode,
     }
   else
@@ -299,7 +326,7 @@ function Match:stepRound(dt)
     local input
     if self.bots[id] and plane and plane.alive then
       input = AI.input(plane, self:enemyTarget(plane), self.sim,
-        self.aiStates[id] or AI.newState(), dt)
+        self.aiStates[id] or AI.newState(self.botDifficulty), dt, self.botDifficulty)
       input.seq = 0
     else
       input = table.remove(st.queue, 1) or st.last or neutral(plane)
@@ -312,7 +339,9 @@ function Match:stepRound(dt)
   local events = self.sim:step(inputs, dt)
   for _, e in ipairs(events) do
     self.events[#self.events + 1] = e
-    if e.type == "kill" then
+    if e.type == "hit" and e.owner and self.scores[e.owner] then
+      self.scores[e.owner].damage = (self.scores[e.owner].damage or 0) + (e.damage or 0)
+    elseif e.type == "kill" then
       if e.killer and self.scores[e.killer] then
         self.scores[e.killer].kills = self.scores[e.killer].kills + 1
         self.scores[e.killer].roundKills = self.scores[e.killer].roundKills + 1
@@ -454,8 +483,10 @@ function Match:buildSnapshot()
     seed = self.seed,
     round = self.round,
     phase = self.phase,
+    rounds = self.rounds,
     timer = r2(self:timer()),
     champion = self.champion,
+    mvp = self.mvp,
     roundWinner = self.roundWinner,
     mode = self.mode,
     teamMode = self.teamMode,

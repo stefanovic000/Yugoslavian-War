@@ -319,6 +319,8 @@ function Server:roomState(room)
       round = room.match and room.match.round or 0,
       phase = room.match and room.match.phase or "lobby",
       champion = room.match and room.match.champion or nil,
+      lastMvp = room.lastMvp,
+      lastMvpName = room.lastMvpName,
     },
   }
 end
@@ -334,6 +336,7 @@ function Server:roomSummary(room)
     players = #room.players + (room.bots or 0),
     bots = room.bots or 0,
     mode = room.mode or "ffa",
+    botDifficulty = room.botDifficulty or "veteran",
     spectators = #room.spectators,
     max = C.MAX_PLAYERS,
     round = room.match and room.match.round or 0,
@@ -405,7 +408,9 @@ end
 
 function Server:startMatch(room)
   local players = self:playerInfo(room)
-  room.match = Match.new(players, self:randomSeed(), { mode = room.mode })
+  room.match = Match.new(players, self:randomSeed(), {
+    mode = room.mode, botDifficulty = room.botDifficulty,
+  })
   room.status = "playing"
   self:matchStart(room)
   self:broadcastRoom(room)
@@ -460,6 +465,9 @@ function Server:createRoom(client, msg)
     playerTeams = { [client.id] = 1 },
     bots = 0,
     mode = "ffa",
+    botDifficulty = "veteran",
+    lastMvp = nil,
+    lastMvpName = nil,
     bannedIps = {},
     bannedIds = {},
     status = "lobby",
@@ -718,8 +726,11 @@ function Server.handlers.room_settings(self, client, msg)
   local bots = math.floor(tonumber(msg.bots) or room.bots or 0)
   bots = math.max(0, math.min(C.MAX_PLAYERS, bots))
   bots = math.min(bots, C.MAX_PLAYERS - #room.players)
+  local difficulty = tostring(msg.botDifficulty or room.botDifficulty or "veteran")
+  if difficulty ~= "rookie" and difficulty ~= "ace" then difficulty = "veteran" end
   room.mode = mode
   room.bots = bots
+  room.botDifficulty = difficulty
   local teamIndex = 0
   for _, id in ipairs(room.players) do
     if mode == "2v2" then
@@ -839,6 +850,11 @@ function Server:tickMatches(dt)
       room.status = (room.match and room.match.phase == "prep") and "prep" or "playing"
 
       if result == "finished" then
+        if room.match and room.match.mvp then
+          room.lastMvp = room.match.mvp
+          local info = room.match.info[room.lastMvp]
+          room.lastMvpName = info and info.name or ("P" .. tostring(room.lastMvp))
+        end
         self:cancelMatch(room, "Match complete. Back to lobby.")
       end
     end

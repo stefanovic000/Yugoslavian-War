@@ -289,6 +289,9 @@ function NetMatch:processEvents(events)
         self.noticeTimer = 1.4
         self.shake = math.max(self.shake, 7)
       end
+    elseif e.type == "sides_switched" then
+      self.notice = "SIDES SWITCHED"
+      self.noticeTimer = 2.5
     elseif e.type == "overheat" then
       Audio.play("overheat", e.player == self.selfId and 0.42 or 0.12)
       if e.player == self.selfId then
@@ -317,6 +320,7 @@ function NetMatch:processEvents(events)
       self:setBanner("ROUND OVER  /  " .. name:upper(), 2.2)
     elseif e.type == "match_end" then
       self.champion = e.champion
+      self.mvp = e.mvp
       self.mode = e.mode or self.mode
       self.teamMode = e.teamMode == true
       self.phase = "match_end"
@@ -332,8 +336,10 @@ function NetMatch:onSnapshot(msg)
   self.round = msg.round
   self.timer = msg.timer
   self.champion = msg.champion
+  self.mvp = msg.mvp
   self.roundWinner = msg.roundWinner
   self.mode = msg.mode or self.mode
+  self.rounds = msg.rounds or self.rounds
   self.teamMode = msg.teamMode == true
   self.teamKills = msg.teamKills or { [1] = 0, [2] = 0 }
   self.teamWins = msg.teamWins or { [1] = 0, [2] = 0 }
@@ -840,7 +846,7 @@ function NetMatch:drawHud()
   love.graphics.rectangle("line", 236.5, 8.5, 167, 23)
   love.graphics.setFont(UI.font(9, true))
   UI.set(UI.C.cream)
-  love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, C.ROUNDS), 236, 14, 168, "center")
+  love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, self.rounds or C.ROUNDS), 236, 14, 168, "center")
   UI.set(UI.C.orange)
   local aliveAll, aliveTeams = 0, { [1] = 0, [2] = 0 }
   for id, v in pairs(self.visuals) do
@@ -1094,7 +1100,9 @@ function NetMatch:drawHud()
     love.graphics.printf(label, 0, 142, 640, "center")
     UI.set(UI.C.cream2)
     love.graphics.setFont(UI.font(8))
-    love.graphics.printf("RETURNING TO LOBBY", 0, 174, 640, "center")
+    local mvpName = self.mvp and (self.names[self.mvp] or ("P" .. tostring(self.mvp))) or "NOBODY"
+    love.graphics.printf("MVP: " .. mvpName:upper(), 0, 168, 640, "center")
+    love.graphics.printf("RETURNING TO LOBBY", 0, 190, 640, "center")
   end
 end
 

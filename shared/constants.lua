@@ -29,7 +29,7 @@ local C = {
 
   MAX_PLAYERS = 4,
   MIN_PLAYERS = 2,
-  ROUNDS = 5,
+  ROUNDS = 6,
   ROUND_KILLS = 5,
   ROUND_BREAK = 3,
   PREP_TIME = 10,

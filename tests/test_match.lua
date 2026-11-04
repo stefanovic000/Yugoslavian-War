@@ -4,7 +4,7 @@ local Match = require("server.match")
 local cases = {}
 
 cases[#cases + 1] = {
-  name = "five rounds use prep and finish to lobby",
+  name = "six rounds use prep and finish to lobby",
   fn = function()
     local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 42)
     assert(m.round == 1 and m.phase == "prep")
@@ -191,6 +191,31 @@ cases[#cases + 1] = {
     assert(a.x < b.x, "1v1 pilots should start on opposite sides")
     m:update(C.ROUND_BREAK + 0.01)
     assert(m.phase == "round")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "six rounds switch sides after three and choose an MVP",
+  fn = function()
+    local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 31)
+    m:beginRound()
+    assert(not m.sidesSwapped)
+    m:startRound(4, true)
+    assert(m.sidesSwapped, "sides did not switch after round 3")
+    local switched = false
+    for _, e in ipairs(m.events) do
+      if e.type == "sides_switched" then switched = true end
+    end
+    assert(switched, "sides_switched event missing")
+
+    m.scores[1].kills = 4
+    m.scores[1].damage = 300
+    m.scores[2].kills = 1
+    m.scores[2].damage = 80
+    m.round = 6
+    m:finishRound(1)
+    assert(m.phase == "match_end")
+    assert(m.mvp == 1, "MVP should be the top killer")
   end,
 }
 

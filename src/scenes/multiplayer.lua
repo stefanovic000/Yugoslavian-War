@@ -1,4 +1,4 @@
--- multiplayer.lua
+﻿-- multiplayer.lua
 -- Server browser + room lobby. The actual match scene is pushed when the
 -- server announces match_start.
 
@@ -211,10 +211,11 @@ function Multiplayer:update(dt)
   elseif self.phase == "lobby" then
     if not self.roomState then return end
     if self.roomSettingsOpen then
-      if UI.hit(mx, my, 188, 134, 264, 24) then self.hover = "mode" end
-      if UI.hit(mx, my, 246, 168, 34, 24) then self.hover = "botsMinus" end
-      if UI.hit(mx, my, 360, 168, 34, 24) then self.hover = "botsPlus" end
-      if UI.hit(mx, my, 270, 206, 100, 24) then self.hover = "roomClose" end
+      if UI.hit(mx, my, 188, 120, 264, 24) then self.hover = "mode" end
+      if UI.hit(mx, my, 246, 144, 34, 24) then self.hover = "botsMinus" end
+      if UI.hit(mx, my, 360, 144, 34, 24) then self.hover = "botsPlus" end
+      if UI.hit(mx, my, 188, 188, 264, 24) then self.hover = "botDifficulty" end
+      if UI.hit(mx, my, 270, 220, 100, 24) then self.hover = "roomClose" end
       return
     end
     if UI.hit(mx, my, 36, 310, 100, 24) then self.hover = "leave" end
@@ -239,8 +240,11 @@ function Multiplayer:canStart()
     and self.roomState.status == "lobby" and self:pilotCount() >= C.MIN_PLAYERS
 end
 
-function Multiplayer:sendRoomSettings(mode, bots)
-  self.client:send({ type = "room_settings", mode = mode, bots = bots })
+function Multiplayer:sendRoomSettings(mode, bots, botDifficulty)
+  self.client:send({
+    type = "room_settings", mode = mode, bots = bots,
+    botDifficulty = botDifficulty or self.roomState and self.roomState.botDifficulty or "veteran",
+  })
 end
 
 function Multiplayer:selectedMember()
@@ -461,11 +465,16 @@ function Multiplayer:drawLobby()
 
   UI.set(UI.C.cream2)
   love.graphics.setFont(UI.font(7))
-  love.graphics.print("5 ROUNDS  /  LAST PILOT OR TEAM FLYING WINS THE ROUND", 40, 232)
+  love.graphics.print(string.format("%d ROUNDS  /  LAST PILOT OR TEAM FLYING WINS THE ROUND", C.ROUNDS), 40, 232)
   love.graphics.print("AFTER ROUND 5: 10 SECONDS TO JOIN THE NEXT MATCH", 40, 244)
   love.graphics.print("CLOUDS HIDE PLANES  /  PARACHUTE CRATES REFILL AMMO", 40, 256)
-  love.graphics.print(string.format("MODE %s   /   BOTS %d", (room.mode or "FFA"):upper(), room.bots or 0),
-    40, 268)
+  love.graphics.print(string.format("MODE %s   /   BOTS %d   /   BOT %s",
+    (room.mode or "FFA"):upper(), room.bots or 0,
+    (room.botDifficulty or "VETERAN"):upper()), 40, 268)
+  if room.lastMvpName then
+    UI.set(UI.C.orange)
+    love.graphics.print("MATCH MVP  " .. tostring(room.lastMvpName):upper(), 40, 280)
+  end
 
   UI.button(36, 310, 100, 24, "LEAVE", {
     hover = self.hover == "leave", font = UI.font(8, true),
@@ -506,19 +515,23 @@ function Multiplayer:drawRoomSettings()
   if not room then return end
   UI.set(UI.C.ink, 0.72)
   love.graphics.rectangle("fill", 0, 0, 640, 360)
-  UI.panel(170, 96, 300, 146)
-  UI.title("ROOM SETTINGS", 104, 12)
-  UI.small("MODE", 190, 120, UI.C.cream2, "left")
-  UI.button(188, 134, 264, 24, (room.mode or "FFA"):upper(), {
+  UI.panel(170, 78, 300, 174)
+  UI.title("ROOM SETTINGS", 86, 12)
+  UI.small("MODE", 190, 108, UI.C.cream2, "left")
+  UI.button(188, 120, 264, 24, (room.mode or "FFA"):upper(), {
     hover = self.hover == "mode", font = UI.font(9, true),
   })
-  UI.small("BOTS", 190, 174, UI.C.cream2, "left")
-  UI.button(246, 168, 34, 24, "-", { hover = self.hover == "botsMinus", font = UI.font(10, true) })
+  UI.small("BOTS", 190, 150, UI.C.cream2, "left")
+  UI.button(246, 144, 34, 24, "-", { hover = self.hover == "botsMinus", font = UI.font(10, true) })
   UI.set(UI.C.cream)
   love.graphics.setFont(UI.font(10, true))
-  love.graphics.printf(tostring(room.bots or 0), 286, 174, 70, "center")
-  UI.button(360, 168, 34, 24, "+", { hover = self.hover == "botsPlus", font = UI.font(10, true) })
-  UI.button(270, 206, 100, 24, "CLOSE", {
+  love.graphics.printf(tostring(room.bots or 0), 286, 150, 70, "center")
+  UI.button(360, 144, 34, 24, "+", { hover = self.hover == "botsPlus", font = UI.font(10, true) })
+  UI.small("BOT LEVEL", 190, 182, UI.C.cream2, "left")
+  UI.button(188, 188, 264, 24, (room.botDifficulty or "VETERAN"):upper(), {
+    hover = self.hover == "botDifficulty", font = UI.font(9, true),
+  })
+  UI.button(270, 220, 100, 24, "CLOSE", {
     hover = self.hover == "roomClose", font = UI.font(8, true),
   })
 end
@@ -649,17 +662,21 @@ function Multiplayer:mousepressed(x, y)
     if not self.roomState then return end
     local room = self.roomState
     if self.roomSettingsOpen then
-      if room.host == self.client.selfId and UI.hit(mx, my, 188, 134, 264, 24) then
+      if room.host == self.client.selfId and UI.hit(mx, my, 188, 120, 264, 24) then
         local mode = "ffa"
         if room.mode == "ffa" then mode = "1v1"
         elseif room.mode == "1v1" then mode = "2v2" end
         self:sendRoomSettings(mode, room.bots or 0)
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 168, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 144, 34, 24) then
         self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1))
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 168, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 144, 34, 24) then
         local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
         self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1))
-      elseif UI.hit(mx, my, 270, 206, 100, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 188, 264, 24) then
+        local level = room.botDifficulty or "veteran"
+        level = level == "rookie" and "veteran" or level == "veteran" and "ace" or "rookie"
+        self:sendRoomSettings(room.mode, room.bots or 0, level)
+      elseif UI.hit(mx, my, 270, 220, 100, 24) then
         self.roomSettingsOpen = false
       end
       return
@@ -686,3 +703,4 @@ function Multiplayer:mousepressed(x, y)
 end
 
 return Multiplayer
+
