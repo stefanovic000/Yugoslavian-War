@@ -211,11 +211,11 @@ function Multiplayer:update(dt)
   elseif self.phase == "lobby" then
     if not self.roomState then return end
     if self.roomSettingsOpen then
-      if UI.hit(mx, my, 188, 120, 264, 24) then self.hover = "mode" end
+      if UI.hit(mx, my, 188, 116, 264, 24) then self.hover = "mode" end
       if UI.hit(mx, my, 246, 144, 34, 24) then self.hover = "botsMinus" end
       if UI.hit(mx, my, 360, 144, 34, 24) then self.hover = "botsPlus" end
-      if UI.hit(mx, my, 188, 188, 264, 24) then self.hover = "botDifficulty" end
-      if UI.hit(mx, my, 270, 220, 100, 24) then self.hover = "roomClose" end
+      if UI.hit(mx, my, 180, 174, 280, 42) then self.hover = "botDifficulty" end
+      if UI.hit(mx, my, 270, 224, 100, 24) then self.hover = "roomClose" end
       return
     end
     if UI.hit(mx, my, 36, 310, 100, 24) then self.hover = "leave" end
@@ -251,6 +251,21 @@ function Multiplayer:selectedMember()
   if not self.roomState then return nil end
   local list = {}
   for _, p in ipairs(self.roomState.players) do list[#list + 1] = p end
+  local counts = { [1] = 0, [2] = 0 }
+  for _, p in ipairs(self.roomState.players) do
+    if p.team == 1 or p.team == 2 then counts[p.team] = counts[p.team] + 1 end
+  end
+  for b = 1, (self.roomState.bots or 0) do
+    local team
+    if self.roomState.mode == "2v2" then
+      local fixed = self.roomState.botTeams and (self.roomState.botTeams[b] or self.roomState.botTeams[tostring(b)])
+      team = (fixed == 1 or fixed == 2) and fixed or ((counts[1] <= counts[2]) and 1 or 2)
+      counts[team] = counts[team] + 1
+    end
+    list[#list + 1] = {
+      id = -b, name = "BOT " .. tostring(b), bot = true, team = team,
+    }
+  end
   for _, p in ipairs(self.roomState.spectators) do list[#list + 1] = p end
   return list[self.selected]
 end
@@ -384,7 +399,9 @@ function Multiplayer:drawLobby()
     for b = 1, (room.bots or 0) do
       local team
       if room.mode == "2v2" then
-        team = (counts[1] <= counts[2]) and 1 or 2
+        local fixed = room.botTeams and (room.botTeams[b] or room.botTeams[tostring(b)])
+        team = (fixed == 1 or fixed == 2) and fixed
+          or ((counts[1] <= counts[2]) and 1 or 2)
         counts[team] = counts[team] + 1
       end
       list[#list + 1] = {
@@ -515,10 +532,10 @@ function Multiplayer:drawRoomSettings()
   if not room then return end
   UI.set(UI.C.ink, 0.72)
   love.graphics.rectangle("fill", 0, 0, 640, 360)
-  UI.panel(170, 78, 300, 174)
-  UI.title("ROOM SETTINGS", 86, 12)
-  UI.small("MODE", 190, 108, UI.C.cream2, "left")
-  UI.button(188, 120, 264, 24, (room.mode or "FFA"):upper(), {
+  UI.panel(170, 74, 300, 194)
+  UI.title("ROOM SETTINGS", 82, 12)
+  UI.small("MODE", 190, 104, UI.C.cream2, "left")
+  UI.button(188, 116, 264, 24, (room.mode or "FFA"):upper(), {
     hover = self.hover == "mode", font = UI.font(9, true),
   })
   UI.small("BOTS", 190, 150, UI.C.cream2, "left")
@@ -527,11 +544,11 @@ function Multiplayer:drawRoomSettings()
   love.graphics.setFont(UI.font(10, true))
   love.graphics.printf(tostring(room.bots or 0), 286, 150, 70, "center")
   UI.button(360, 144, 34, 24, "+", { hover = self.hover == "botsPlus", font = UI.font(10, true) })
-  UI.small("BOT LEVEL", 190, 182, UI.C.cream2, "left")
-  UI.button(188, 188, 264, 24, (room.botDifficulty or "VETERAN"):upper(), {
+  UI.small("BOT LEVEL", 190, 178, UI.C.cream2, "left")
+  UI.button(188, 192, 264, 24, "<  " .. (room.botDifficulty or "VETERAN"):upper() .. "  >", {
     hover = self.hover == "botDifficulty", font = UI.font(9, true),
   })
-  UI.button(270, 220, 100, 24, "CLOSE", {
+  UI.button(270, 224, 100, 24, "CLOSE", {
     hover = self.hover == "roomClose", font = UI.font(8, true),
   })
 end
@@ -588,7 +605,8 @@ function Multiplayer:keypressed(key)
 
   if self.phase == "lobby" then
     if not self.roomState then return end
-    local count = #self.roomState.players + #self.roomState.spectators
+    local count = #self.roomState.players + (self.roomState.bots or 0)
+      + #self.roomState.spectators
     if key == "up" then
       self.selected = math.max(1, self.selected - 1)
     elseif key == "down" then
@@ -662,7 +680,7 @@ function Multiplayer:mousepressed(x, y)
     if not self.roomState then return end
     local room = self.roomState
     if self.roomSettingsOpen then
-      if room.host == self.client.selfId and UI.hit(mx, my, 188, 120, 264, 24) then
+      if room.host == self.client.selfId and UI.hit(mx, my, 188, 116, 264, 24) then
         local mode = "ffa"
         if room.mode == "ffa" then mode = "1v1"
         elseif room.mode == "1v1" then mode = "2v2" end
@@ -672,11 +690,11 @@ function Multiplayer:mousepressed(x, y)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 144, 34, 24) then
         local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
         self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1))
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 188, 264, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 180, 174, 280, 42) then
         local level = room.botDifficulty or "veteran"
         level = level == "rookie" and "veteran" or level == "veteran" and "ace" or "rookie"
         self:sendRoomSettings(room.mode, room.bots or 0, level)
-      elseif UI.hit(mx, my, 270, 220, 100, 24) then
+      elseif UI.hit(mx, my, 270, 224, 100, 24) then
         self.roomSettingsOpen = false
       end
       return
@@ -703,4 +721,6 @@ function Multiplayer:mousepressed(x, y)
 end
 
 return Multiplayer
+
+
 

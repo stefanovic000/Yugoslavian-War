@@ -260,6 +260,10 @@ cases[#cases + 1] = {
     patrolState.patrolTimer = 0
     AI.input(high, nil, sim, patrolState, C.TICK)
     assert(patrolState.patrolY <= C.WORLD.groundY - 120, "AI patrol target is below the ground margin")
+
+    local sky = sim:addPlane({ id = 3, x = 300, y = 42, angle = 0, speed = 130, throttle = 0.7 })
+    local skyInput = AI.input(sky, nil, sim, AI.newState(), C.TICK)
+    assert(skyInput.pitch > 0, "AI did not dive away from the sky ceiling")
   end,
 }
 

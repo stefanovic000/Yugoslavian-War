@@ -273,7 +273,9 @@ function Server:playerInfo(room)
   for b = 1, (room.bots or 0) do
     local team
     if teamMode then
-      team = (counts[1] <= counts[2]) and 1 or 2
+      local fixed = room.botTeams and room.botTeams[b]
+      team = (fixed == 1 or fixed == 2) and fixed
+        or ((counts[1] <= counts[2]) and 1 or 2)
       counts[team] = counts[team] + 1
     else
       team = -b
@@ -315,7 +317,9 @@ function Server:roomState(room)
       spectators = spectators,
       max = C.MAX_PLAYERS,
       bots = room.bots or 0,
+      botTeams = room.botTeams or {},
       mode = room.mode or "ffa",
+      botDifficulty = room.botDifficulty or "veteran",
       round = room.match and room.match.round or 0,
       phase = room.match and room.match.phase or "lobby",
       champion = room.match and room.match.champion or nil,
@@ -466,6 +470,7 @@ function Server:createRoom(client, msg)
     bots = 0,
     mode = "ffa",
     botDifficulty = "veteran",
+    botTeams = {},
     lastMvp = nil,
     lastMvpName = nil,
     bannedIps = {},
@@ -745,6 +750,15 @@ function Server.handlers.room_settings(self, client, msg)
 end
 
 function Server:assignRoomMember(room, targetId, role, team)
+  if targetId < 0 then
+    local botIndex = -targetId
+    if botIndex < 1 or botIndex > (room.bots or 0) then return false end
+    if team == 1 or team == 2 then
+      room.botTeams[botIndex] = team
+      return true
+    end
+    return false
+  end
   local isPlayer, isSpectator = false, false
   for _, id in ipairs(room.players) do if id == targetId then isPlayer = true; break end end
   for _, id in ipairs(room.spectators) do if id == targetId then isSpectator = true; break end end

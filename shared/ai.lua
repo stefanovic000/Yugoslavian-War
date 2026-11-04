@@ -59,23 +59,31 @@ function AI.input(plane, target, sim, state, dt, difficulty)
   local projectedX = plane.x + (plane.vx or 0) * 0.8
   local projectedY = plane.y + (plane.vy or 0) * 0.8
   local nearGround = groundClearance < 180 or projectedY > groundY - 100
-  local nearWall = wallClearance < 170 or projectedX < wallLeft + 100 or projectedX > wallRight - 100
   local hardGround = groundClearance < 65 or projectedY > groundY - 55
+  local nearSky = plane.y < 150 or projectedY < 95
+  local hardSky = plane.y < 65 or projectedY < 40
+  local nearWall = wallClearance < 170 or projectedX < wallLeft + 100 or projectedX > wallRight - 100
 
   if hardGround then
     -- Emergency recovery: full power, nose hard toward open sky.
     desired = M.angleTo(plane.x, plane.y, plane.x, groundY - 240)
     throttle = 1
-  elseif nearGround then
-    local noseX = plane.x + math.cos(plane.angle) * 120
-    desired = M.angleTo(plane.x, plane.y, noseX, groundY - 200)
+  elseif hardSky then
+    -- Do not let the bot pin itself against the top of the arena.
+    desired = M.angleTo(plane.x, plane.y, plane.x,
+      math.min(groundY - 220, plane.y + 240))
+    throttle = 1
+  elseif nearSky then
+    -- Recover toward the middle of the arena and lose altitude together.
+    desired = M.angleTo(plane.x, plane.y, C.WORLD.w * 0.5,
+      math.min(groundY - 180, plane.y + 190))
     throttle = 1
   elseif nearWall then
     -- Steer back to the middle and gain height before chasing again.
     local dir = (plane.x < C.WORLD.w * 0.5) and 1 or -1
     desired = M.angleTo(plane.x, plane.y, plane.x + dir * 180, plane.y - 110)
     throttle = 1
-  elseif speed < 100 or plane.stalling then
+  elseif nearGround then
     desired = 0.45
     throttle = 1
   elseif visible then
