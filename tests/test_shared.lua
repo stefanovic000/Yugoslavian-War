@@ -448,4 +448,24 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "stall severity is progressive with airspeed",
+  fn = function()
+    local sim = newSim(24)
+    local medium = sim:addPlane({ id = 1, x = 300, y = 225, angle = 0, speed = 60, throttle = 0 })
+    sim:step({ [1] = { throttle = 0, pitch = 0 } }, C.TICK)
+    assert(medium.stallSeverity > 0 and medium.stallSeverity < 1,
+      "medium-speed stall should be partial")
+
+    local low = sim:addPlane({ id = 2, x = 500, y = 225, angle = 0, speed = 25, throttle = 0 })
+    sim:step({ [2] = { throttle = 0, pitch = 0 } }, C.TICK)
+    assert(low.stallSeverity > medium.stallSeverity,
+      "lower airspeed should increase stall severity")
+
+    local fast = sim:addPlane({ id = 3, x = 700, y = 225, angle = 0, speed = 160, throttle = 1 })
+    for _ = 1, 10 do sim:step({ [3] = { throttle = 1, pitch = -1 } }, C.TICK) end
+    assert(not fast.stalling, "high-speed pull should not immediately stall")
+  end,
+}
+
 return cases

@@ -46,6 +46,7 @@ function Flight.new(opts)
     ramCooldown = 0,
     alive = true,
     stalling = false,
+    stallSeverity = 0,
     stallTimer = 0,
     hitFlash = 0,
     invuln = opts.invuln or 1.5,
@@ -76,6 +77,7 @@ function Flight.reset(plane, x, y, angle)
   plane.ramCooldown = 0
   plane.alive = true
   plane.stalling = false
+  plane.stallSeverity = 0
   plane.stallTimer = 0
   plane.hitFlash = 0
   plane.invuln = 1.5
@@ -147,38 +149,46 @@ function Flight.step(plane, input, dt)
 
   local wing = Flight.wingFactor(plane)
   local tail = Flight.tailFactor(plane)
-  local stalling = speed < P.stallSpeed
-  local authority = M.clamp((speed - 25) / (P.stallSpeed * 1.6 - 25), 0.18, 1)
-  authority = authority * wing * (0.65 + 0.35 * tail)
+  local velocityAngle = math.atan2(plane.vy, plane.vx)
+  local aoa = math.abs(M.angleDiff(plane.angle, velocityAngle))
+  local speedSeverity = M.clamp((P.stallSpeed - speed) / P.stallSpeed, 0, 1)
+  local aoaSeverity = M.clamp((aoa - P.stallAoa) / (P.stallAoa * 0.85), 0, 1)
+  local lowSpeedFactor = M.clamp(
+    (P.stallAoaSpeed - speed) / (P.stallAoaSpeed - P.stallSpeed), 0, 1)
+  local stallSeverity = math.max(speedSeverity, aoaSeverity * lowSpeedFactor)
+  local stalling = stallSeverity > 0.06
 
-  -- A stalled wing still gives enough elevator authority to snap the nose
-  -- around, but the aircraft immediately starts falling. That makes a
-  -- deliberate stall a risky reversal rather than just a dead stick.
-  if stalling then authority = math.max(authority, 0.55) end
+  local authority = M.clamp((speed - 20) / (P.stallSpeed * 1.6 - 20), 0.22, 1)
+  authority = authority * wing * (0.65 + 0.35 * tail)
+  authority = authority * (1 - 0.38 * stallSeverity)
 
   local pitch = M.clamp(input.pitch or 0, -1, 1)
   local targetPitchVel = pitch * P.pitchRate * authority
-  plane.pitchVel = plane.pitchVel + (targetPitchVel - plane.pitchVel) * (1 - math.exp(-12 * dt))
+  plane.pitchVel = plane.pitchVel
+    + (targetPitchVel - plane.pitchVel) * (1 - math.exp(-P.pitchDamping * dt))
   plane.angle = M.wrapAngle(plane.angle + plane.pitchVel * dt)
 
   plane.stalling = stalling
+  plane.stallSeverity = stallSeverity
   if plane.stalling then
     plane.stallTimer = plane.stallTimer + dt
-    -- Nose falls toward screen-down when there is not enough airspeed. This is
-    -- screen-relative, so it works whether the plane is flying left or right.
+    -- The wing progressively loses lift; the resulting nose drop is driven by
+    -- the current stall severity, not a binary low-speed switch.
     local diff = M.angleDiff(plane.angle, math.pi * 0.5)
-    local severity = 1 - M.clamp(speed / P.stallSpeed, 0, 1) * 0.6
     plane.angle = M.wrapAngle(plane.angle
-      + M.clamp(diff * 3, -1, 1) * P.stallTorque * severity * dt)
+      + M.clamp(diff * 2.0, -1, 1) * P.stallTorque
+      * (0.25 + 0.75 * stallSeverity) * dt)
   else
     plane.stallTimer = 0
   end
 
   local fx, fy = math.cos(plane.angle), math.sin(plane.angle)
+  local climb = math.max(0, -plane.vy) / math.max(speed, 1)
 
-  -- Thrust along the nose. A small amount of idle thrust means the engine is
-  -- never completely dead, but closing the throttle still adds engine braking.
-  local thrust = (0.04 + 0.96 * plane.throttle) * P.thrust * Flight.engineFactor(plane)
+  -- Thrust along the nose. Climbing bleeds propeller efficiency, which prevents
+  -- a sustained vertical climb from becoming a free elevator.
+  local thrust = (0.04 + 0.96 * plane.throttle) * P.thrust
+    * Flight.engineFactor(plane) * (1 - P.climbThrustCut * climb)
   plane.vx = plane.vx + fx * thrust * dt
   plane.vy = plane.vy + fy * thrust * dt
 
@@ -190,20 +200,21 @@ function Flight.step(plane, input, dt)
   -- a second pitch control.
   local liftFrac = M.clamp(speed / P.cruiseSpeed, 0, 1.0)
     * (math.abs(math.cos(plane.angle)) ^ 0.5) * wing
+  liftFrac = liftFrac * (1 - P.stallLiftCut * stallSeverity)
   -- Climbing steeply costs lift and energy. Without this a sustained vertical
   -- pull would be a free elevator to the ceiling.
-  local climb = math.max(0, -plane.vy) / math.max(speed, 1)
   liftFrac = liftFrac * (1 - P.climbLiftCut * climb)
   local lift = P.gravity * liftFrac
   plane.vy = plane.vy - lift * dt
 
   -- Closed throttle adds engine braking. The aircraft bleeds speed, loses lift
   -- and falls without making the throttle itself act like an elevator.
-  local velocityAngle = math.atan2(plane.vy, plane.vx)
+  velocityAngle = math.atan2(plane.vy, plane.vx)
   local slip = math.abs(M.angleDiff(velocityAngle, plane.angle))
   local dragCoef = P.drag + (1 - plane.throttle) * P.engineBrake
     + slip * P.slipDrag + climb * P.climbDrag
     + math.abs(plane.pitchVel) * P.turnDrag
+    + stallSeverity * P.stallDrag
   local drag = dragCoef * speed
   plane.vx = plane.vx - plane.vx * drag * dt
   plane.vy = plane.vy - plane.vy * drag * dt
@@ -214,7 +225,7 @@ function Flight.step(plane, input, dt)
   local newSpeed = Flight.speed(plane)
   if newSpeed > 10 then
     velocityAngle = math.atan2(plane.vy, plane.vx)
-    local follow = 1 - math.exp(-5.0 * authority * dt)
+    local follow = 1 - math.exp(-6.0 * authority * dt)
     velocityAngle = velocityAngle + M.angleDiff(velocityAngle, plane.angle) * follow
     plane.vx = math.cos(velocityAngle) * newSpeed
     plane.vy = math.sin(velocityAngle) * newSpeed

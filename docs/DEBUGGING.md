@@ -253,7 +253,7 @@ uncaught error instead of hanging on the crash screen.
 test.bat
 ```
 
-44 tests cover:
+45 tests cover:
 
 - utility math/string wrapping;
 - class inheritance;
