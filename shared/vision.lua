@@ -87,12 +87,17 @@ function Vision.outline(viewer, clouds, segments)
     raw[i] = r
   end
 
-  -- A tiny angular blur removes the raycast staircase at cloud edges without
-  -- visibly widening the shadow.
+  -- Smooth only along continuous edges. A three-tap average across a cloud
+  -- boundary would pull the shadow away from the cloud, leaving a visible gap.
   for i = 0, segments - 1 do
     local a = -math.pi + (i / segments) * math.pi * 2
     local worldAngle = viewer.angle + a
-    local r = (raw[(i - 1) % segments] + raw[i] * 2 + raw[(i + 1) % segments]) * 0.25
+    local r = raw[i]
+    local prev = raw[(i - 1) % segments]
+    local next = raw[(i + 1) % segments]
+    if math.abs(prev - r) < 10 and math.abs(next - r) < 10 then
+      r = (prev + r * 2 + next) * 0.25
+    end
     pts[#pts + 1] = viewer.x + math.cos(worldAngle) * r
     pts[#pts + 1] = viewer.y + math.sin(worldAngle) * r
   end
