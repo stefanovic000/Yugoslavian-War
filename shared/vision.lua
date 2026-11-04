@@ -71,7 +71,7 @@ local function firstCloudHit(viewer, angle, maxDist, clouds)
 end
 
 function Vision.outline(viewer, clouds, segments)
-  segments = segments or 160
+  segments = segments or 320
   local pts = {}
   local raw = {}
   local insideCloud = clouds and Clouds.pointInside(clouds, viewer.x, viewer.y)

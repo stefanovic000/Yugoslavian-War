@@ -26,8 +26,8 @@ function Clouds.new(seed, count, opts)
   for i = 1, count do
     local x, y, r, speed, cluster
     if i <= clusterCount then
-      x = M.wrap(cx + rng:range(-52, 52), C.WORLD.w)
-      y = M.wrap(cy + rng:range(-34, 34), C.WORLD.h)
+      x = M.clamp(cx + rng:range(-52, 52), 0, C.WORLD.w)
+      y = M.clamp(cy + rng:range(-34, 34), 0, C.WORLD.h)
       r = rng:range(34, 46)
       speed = clusterSpeed
       cluster = 1
@@ -64,16 +64,25 @@ end
 
 function Clouds.update(clouds, dt)
   for _, cloud in ipairs(clouds.list) do
-    cloud.x = M.wrap(cloud.x + cloud.speed * dt, clouds.w)
+    cloud.x = cloud.x + cloud.speed * dt
+    local margin = cloud.r or 40
+    if cloud.x < -margin then
+      cloud.x = -margin
+      cloud.speed = math.abs(cloud.speed)
+    elseif cloud.x > clouds.w + margin then
+      cloud.x = clouds.w + margin
+      cloud.speed = -math.abs(cloud.speed)
+    end
   end
 end
 
--- True if a world point is inside a cloud puff (wrapping at the edges).
+-- True if a world point is inside a cloud puff. The arena is bounded, so no
+-- wrapped copies are tested.
 function Clouds.pointInside(clouds, x, y)
   for _, cloud in ipairs(clouds.list) do
     for _, puff in ipairs(cloud.puffs) do
-      local dx = M.delta(cloud.x + puff.dx, x, clouds.w)
-      local dy = M.delta(cloud.y + puff.dy, y, clouds.h)
+      local dx = cloud.x + puff.dx - x
+      local dy = cloud.y + puff.dy - y
       if dx * dx + dy * dy <= puff.r * puff.r then
         return true
       end
@@ -82,18 +91,13 @@ function Clouds.pointInside(clouds, x, y)
   return false
 end
 
--- True if the segment a->b passes through a cloud puff. Used by AI vision.
+-- True if the segment a->b passes through a cloud puff.
 function Clouds.segmentBlocked(clouds, x1, y1, x2, y2)
-  local w, h = clouds.w, clouds.h
   for _, cloud in ipairs(clouds.list) do
     for _, puff in ipairs(cloud.puffs) do
       local px, py = cloud.x + puff.dx, cloud.y + puff.dy
-      for _, ox in ipairs({ 0, -w, w }) do
-        for _, oy in ipairs({ 0, -h, h }) do
-          if M.segmentPointDist2(px + ox, py + oy, x1, y1, x2, y2) <= puff.r * puff.r then
-            return true
-          end
-        end
+      if M.segmentPointDist2(px, py, x1, y1, x2, y2) <= puff.r * puff.r then
+        return true
       end
     end
   end
@@ -111,8 +115,8 @@ function Clouds.avoidPoints(clouds, points, margin)
   margin = margin or 75
   local function puffOverlaps(cloud, point)
     for _, puff in ipairs(cloud.puffs) do
-      local dx = M.delta(cloud.x + puff.dx, point.x, clouds.w)
-      local dy = M.delta(cloud.y + puff.dy, point.y, clouds.h)
+      local dx = cloud.x + puff.dx - point.x
+      local dy = cloud.y + puff.dy - point.y
       local rr = puff.r + margin
       if dx * dx + dy * dy < rr * rr then return true end
     end
@@ -136,8 +140,8 @@ function Clouds.avoidPoints(clouds, points, margin)
       local key = cloud.cluster or ("single:" .. tostring(cloud))
       local off = offsets[key]
       if off then
-        cloud.x = M.wrap(cloud.x + off.x, clouds.w)
-        cloud.y = M.wrap(cloud.y + off.y, clouds.h)
+        cloud.x = M.clamp(cloud.x + off.x, -cloud.r, clouds.w + cloud.r)
+        cloud.y = M.clamp(cloud.y + off.y, 0, clouds.h)
       end
     end
   end

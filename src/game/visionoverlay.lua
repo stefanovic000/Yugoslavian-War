@@ -24,7 +24,7 @@ function VisionOverlay.draw(viewer, camera, clouds)
   local scale = C.WORLD.scale * 0.5
   local camX = math.floor(camera.x)
   local camY = math.floor(camera.y)
-  local world = Vision.outline(viewer, clouds, 160)
+  local world = Vision.outline(viewer, clouds, 320)
   local pts = {}
   for i = 1, #world, 2 do
     pts[#pts + 1] = (world[i] - camX) * scale

@@ -433,4 +433,19 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "clouds stay inside the walled arena",
+  fn = function()
+    local Clouds = require("shared.clouds")
+    local clouds = Clouds.new(79, 0)
+    clouds.list = {
+      { x = 990, y = 100, speed = 0, puffs = { { dx = 0, dy = 0, r = 30 } } },
+    }
+    assert(Clouds.pointInside(clouds, 990, 100), "cloud is missing at its real position")
+    assert(not Clouds.pointInside(clouds, 50, 100), "cloud wrapped to the far side of the map")
+    assert(not Clouds.segmentBlocked(clouds, 20, 100, 80, 100),
+      "cloud blocked a line on the far side of the map")
+  end,
+}
+
 return cases
