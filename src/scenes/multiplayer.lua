@@ -30,6 +30,7 @@ function Multiplayer:enter()
   self.spectator = false
   self.inMatch = false
   self.hover = nil
+  self.roomSettingsOpen = false
   self.connectStarted = love.timer.getTime()
   self.flow = _G.DOGFIGHT and _G.DOGFIGHT.opts and _G.DOGFIGHT.opts.flow or nil
   self.flowDone = false
@@ -64,6 +65,7 @@ function Multiplayer:retry()
   self.roomState = nil
   self.spectator = false
   self.inMatch = false
+  self.roomSettingsOpen = false
   self.connectStarted = love.timer.getTime()
   local ok = self.client:connect(Settings.data.serverHost, Settings.data.serverPort, Settings.data.callsign)
   if not ok then
@@ -96,6 +98,7 @@ function Multiplayer:handleMessage(msg)
     self.phase = "lobby"
     self.message = self.spectator and "JOINED AS SPECTATOR" or "JOINED ROOM"
     self.selected = 1
+    self.roomSettingsOpen = false
   elseif msg.type == "room" then
     self.roomState = msg.room
     if self.phase ~= "match" then self.phase = "lobby" end
@@ -207,18 +210,36 @@ function Multiplayer:update(dt)
     if UI.hit(mx, my, 486, 310, 118, 24) then self.hover = "back" end
   elseif self.phase == "lobby" then
     if not self.roomState then return end
-    if UI.hit(mx, my, 36, 310, 110, 24) then self.hover = "leave" end
-    if UI.hit(mx, my, 158, 310, 120, 24) then self.hover = "start" end
-    if UI.hit(mx, my, 290, 310, 100, 24) then self.hover = "kick" end
-    if self.spectator and UI.hit(mx, my, 402, 310, 160, 24) then self.hover = "joinmatch" end
+    if self.roomSettingsOpen then
+      if UI.hit(mx, my, 188, 112, 264, 24) then self.hover = "mode" end
+      if UI.hit(mx, my, 246, 154, 34, 24) then self.hover = "botsMinus" end
+      if UI.hit(mx, my, 360, 154, 34, 24) then self.hover = "botsPlus" end
+      if UI.hit(mx, my, 270, 198, 100, 24) then self.hover = "roomClose" end
+      return
+    end
+    if UI.hit(mx, my, 36, 310, 100, 24) then self.hover = "leave" end
+    if UI.hit(mx, my, 144, 310, 100, 24) then self.hover = "start" end
+    if UI.hit(mx, my, 252, 310, 80, 24) then self.hover = "kick" end
+    if UI.hit(mx, my, 340, 310, 80, 24) then self.hover = "room" end
+    if UI.hit(mx, my, 436, 310, 100, 24) then self.hover = "settings" end
+    if self.spectator and UI.hit(mx, my, 340, 310, 90, 24) then self.hover = "joinmatch" end
   else
     if UI.hit(mx, my, 36, 310, 110, 24) then self.hover = "retry" end
   end
 end
 
+function Multiplayer:pilotCount()
+  if not self.roomState then return 0 end
+  return #self.roomState.players + (self.roomState.bots or 0)
+end
+
 function Multiplayer:canStart()
   return self.roomState and self.roomState.host == self.client.selfId
-    and self.roomState.status == "lobby" and #self.roomState.players >= C.MIN_PLAYERS
+    and self.roomState.status == "lobby" and self:pilotCount() >= C.MIN_PLAYERS
+end
+
+function Multiplayer:sendRoomSettings(mode, bots)
+  self.client:send({ type = "room_settings", mode = mode, bots = bots })
 end
 
 function Multiplayer:selectedMember()
@@ -348,6 +369,15 @@ function Multiplayer:drawLobby()
   love.graphics.setFont(UI.font(9, true))
   love.graphics.printf(string.upper(room.status), 0, 64, 604, "right")
 
+  local function pilotList()
+    local list = {}
+    for _, p in ipairs(room.players) do list[#list + 1] = p end
+    for b = 1, (room.bots or 0) do
+      list[#list + 1] = { id = -b, name = "BOT " .. tostring(b), bot = true }
+    end
+    return list
+  end
+
   local function drawMembers(title, list, x, y, w, h, spectator)
     UI.set(UI.C.cream2)
     love.graphics.setFont(UI.font(8))
@@ -368,19 +398,23 @@ function Multiplayer:drawLobby()
       local p = list[i]
       local ry = y + 20 + (i - 1) * 20
       local index = i
-      if spectator then index = index + #room.players end
+      if spectator then index = index + #room.players + (room.bots or 0) end
       if index == self.selected then
         UI.set(UI.C.orange, 0.15)
         love.graphics.rectangle("fill", x + 3, ry - 2, w - 6, 19)
         UI.set(UI.C.orange)
         love.graphics.rectangle("fill", x + 3, ry - 2, 2, 19)
       end
-      UI.set(UI.C.cream)
+      UI.set(p.bot and UI.C.cream2 or UI.C.cream)
       love.graphics.setFont(UI.font(9))
       local label = p.name
       if p.host then label = label .. "  *" end
       love.graphics.print(label, x + 10, ry)
-      if spectator then
+      if p.bot then
+        UI.set(UI.C.cream2)
+        love.graphics.setFont(UI.font(7))
+        love.graphics.print("BOT", x + 180, ry + 2)
+      elseif spectator then
         UI.set(UI.C.cream2)
         love.graphics.setFont(UI.font(7))
         love.graphics.print("SPEC", x + 160, ry + 2)
@@ -393,7 +427,7 @@ function Multiplayer:drawLobby()
     end
   end
 
-  drawMembers("PILOTS", room.players, 40, 86, 300, 104, false)
+  drawMembers("PILOTS", pilotList(), 40, 86, 300, 104, false)
   drawMembers("SPECTATORS", room.spectators, 352, 86, 244, 104, true)
 
   UI.set(UI.C.cream2)
@@ -413,30 +447,63 @@ function Multiplayer:drawLobby()
   love.graphics.print("5 ROUNDS  /  FIRST TO 5 KILLS WINS A ROUND", 40, 232)
   love.graphics.print("AFTER ROUND 5: 10 SECONDS TO JOIN THE NEXT MATCH", 40, 244)
   love.graphics.print("CLOUDS HIDE PLANES  /  PARACHUTE CRATES REFILL AMMO", 40, 256)
+  love.graphics.print(string.format("MODE %s   /   BOTS %d", (room.mode or "FFA"):upper(), room.bots or 0),
+    40, 268)
 
-  if self.spectator and room.status == "prep" then
-    UI.button(402, 310, 160, 24, "JOIN NEXT MATCH", {
-      hover = self.hover == "joinmatch", font = UI.font(8, true),
-    })
-  end
-
-  UI.button(36, 310, 110, 24, "LEAVE", {
+  UI.button(36, 310, 100, 24, "LEAVE", {
     hover = self.hover == "leave", font = UI.font(8, true),
   })
   if room.host == self.client.selfId then
     local member = self:selectedMember()
-    UI.button(158, 310, 120, 24, "START", {
+    UI.button(144, 310, 100, 24, "START", {
       selected = self:canStart(), disabled = not self:canStart(),
       hover = self.hover == "start", font = UI.font(8, true),
     })
-    UI.button(290, 310, 100, 24, "KICK", {
+    UI.button(252, 310, 80, 24, "KICK", {
       disabled = not member or member.id == room.host,
       hover = self.hover == "kick", font = UI.font(8, true),
     })
+    UI.button(340, 310, 80, 24, "ROOM", {
+      hover = self.hover == "room", font = UI.font(7, true),
+    })
   end
 
-  UI.small("UP DOWN SELECT   /   ENTER START   /   K KICK   /   ESC LEAVE", 36, 338,
-    UI.C.cream2, "left", 560)
+  if self.spectator and room.status == "prep" then
+    UI.button(340, 310, 90, 24, "JOIN [J]", {
+      hover = self.hover == "joinmatch", font = UI.font(7, true),
+    })
+  end
+
+  UI.button(436, 310, 100, 24, "SETTINGS", {
+    hover = self.hover == "settings", font = UI.font(7, true),
+  })
+
+  UI.small("UP DOWN SELECT   /   ENTER START   /   K KICK   /   R ROOM   /   ESC LEAVE", 36, 338,
+    UI.C.cream2, "left", 540)
+
+  if self.roomSettingsOpen then self:drawRoomSettings() end
+end
+
+function Multiplayer:drawRoomSettings()
+  local room = self.roomState
+  if not room then return end
+  UI.set(UI.C.ink, 0.72)
+  love.graphics.rectangle("fill", 0, 0, 640, 360)
+  UI.panel(170, 96, 300, 146)
+  UI.title("ROOM SETTINGS", 104, 12)
+  UI.small("MODE", 190, 120, UI.C.cream2, "left")
+  UI.button(188, 134, 264, 24, (room.mode or "FFA"):upper(), {
+    hover = self.hover == "mode", font = UI.font(9, true),
+  })
+  UI.small("BOTS", 190, 174, UI.C.cream2, "left")
+  UI.button(246, 168, 34, 24, "-", { hover = self.hover == "botsMinus", font = UI.font(10, true) })
+  UI.set(UI.C.cream)
+  love.graphics.setFont(UI.font(10, true))
+  love.graphics.printf(tostring(room.bots or 0), 286, 174, 70, "center")
+  UI.button(360, 168, 34, 24, "+", { hover = self.hover == "botsPlus", font = UI.font(10, true) })
+  UI.button(270, 206, 100, 24, "CLOSE", {
+    hover = self.hover == "roomClose", font = UI.font(8, true),
+  })
 end
 
 function Multiplayer:draw()
@@ -501,6 +568,8 @@ function Multiplayer:keypressed(key)
       if self.roomState.host == self.client.selfId and member and member.id ~= self.roomState.host then
         self.client:send({ type = "kick", target = member.id })
       end
+    elseif key == "r" and self.roomState.host == self.client.selfId then
+      self.roomSettingsOpen = true
     elseif key == "return" or key == "kpenter" then
       if self:canStart() then
         self.client:send({ type = "start" })
@@ -512,7 +581,11 @@ function Multiplayer:keypressed(key)
         self.client:send({ type = "join_match" })
       end
     elseif key == "escape" then
-      self:leaveRoom()
+      if self.roomSettingsOpen then
+        self.roomSettingsOpen = false
+      else
+        self:leaveRoom()
+      end
     end
   end
 end
@@ -543,18 +616,38 @@ function Multiplayer:mousepressed(x, y)
     end
   elseif self.phase == "lobby" then
     if not self.roomState then return end
-    if UI.hit(mx, my, 36, 310, 110, 24) then
+    local room = self.roomState
+    if self.roomSettingsOpen then
+      if room.host == self.client.selfId and UI.hit(mx, my, 188, 112, 264, 24) then
+        local mode = room.mode == "2v2" and "ffa" or "2v2"
+        self:sendRoomSettings(mode, room.bots or 0)
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 154, 34, 24) then
+        self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1))
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 154, 34, 24) then
+        local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
+        self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1))
+      elseif UI.hit(mx, my, 270, 198, 100, 24) then
+        self.roomSettingsOpen = false
+      end
+      return
+    end
+
+    if UI.hit(mx, my, 36, 310, 100, 24) then
       self:leaveRoom()
-    elseif UI.hit(mx, my, 158, 310, 120, 24) and self:canStart() then
+    elseif UI.hit(mx, my, 144, 310, 100, 24) and self:canStart() then
       self.client:send({ type = "start" })
-    elseif UI.hit(mx, my, 290, 310, 100, 24) then
+    elseif UI.hit(mx, my, 252, 310, 80, 24) then
       local member = self:selectedMember()
-      if self.roomState.host == self.client.selfId and member and member.id ~= self.roomState.host then
+      if room.host == self.client.selfId and member and member.id ~= room.host then
         self.client:send({ type = "kick", target = member.id })
       end
-    elseif self.spectator and UI.hit(mx, my, 402, 310, 160, 24)
-      and self.roomState.status == "prep" then
+    elseif room.host == self.client.selfId and UI.hit(mx, my, 340, 310, 80, 24) then
+      self.roomSettingsOpen = true
+    elseif self.spectator and UI.hit(mx, my, 340, 310, 90, 24)
+      and room.status == "prep" then
       self.client:send({ type = "join_match" })
+    elseif UI.hit(mx, my, 436, 310, 100, 24) then
+      App:push(require("src.scenes.settings"))
     end
   end
 end

@@ -142,4 +142,28 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "2v2 teams and bots are authoritative",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A", team = 1 },
+      { id = -1, name = "BOT 1", isBot = true, team = 2 },
+    }, 26, { mode = "2v2" })
+    assert(m.teamMode, "2v2 mode was not enabled")
+    local human, bot = m.sim:getPlane(1), m.sim:getPlane(-1)
+    assert(human and bot, "team planes missing")
+    assert(human.team == 1 and bot.team == 2, "team assignment mismatch")
+    assert(human.x < bot.x, "teams should spawn on opposite sides")
+    m.sim.clouds.list = {}
+    m:stepRound(C.TICK)
+    assert(bot.vx ~= 0 or bot.vy ~= 0, "bot AI did not produce movement")
+
+    m.teamKills[1] = C.ROUND_KILLS
+    m:stepRound(C.TICK)
+    assert(m.roundWinner == 1, "team 1 should win the round")
+    assert(m.scores[1].wins == 1, "team member did not receive the win")
+    assert(m.phase ~= "round", "round did not end")
+  end,
+}
+
 return cases

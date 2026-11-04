@@ -6,6 +6,7 @@ local Flight = require("shared.flight")
 local Sim = require("shared.sim")
 local Clouds = require("shared.clouds")
 local Vision = require("shared.vision")
+local AI = require("shared.ai")
 
 local Match = {}
 Match.__index = Match
@@ -20,13 +21,21 @@ local function neutral(plane)
   return { throttle = plane and plane.throttle or 0.7, pitch = 0, fire = false, seq = 0 }
 end
 
-function Match.new(players, seed)
+function Match.new(players, seed, opts)
+  opts = opts or {}
+  local teamMode = opts.mode == "2v2"
   local m = setmetatable({
     players = {},
     info = {},
     scores = {},
     inputs = {},
-    sim = Sim.new({ seed = seed }),
+    teams = {},
+    bots = {},
+    aiStates = {},
+    teamMode = teamMode,
+    teamKills = { [1] = 0, [2] = 0 },
+    teamWins = { [1] = 0, [2] = 0 },
+    sim = Sim.new({ seed = seed, teamMode = teamMode }),
     seed = seed,
     round = 0,
     phase = "round",
@@ -42,17 +51,29 @@ function Match.new(players, seed)
   Clouds.avoidPoints(m.sim.clouds, C.SPAWNS3, 80)
 
   for i, p in ipairs(players) do
-    m:addPlayer(p.id, p.name, i)
+    local team = p.team
+    if not team then
+      team = teamMode and (((i - 1) % 2) + 1) or p.id
+    end
+    m:addPlayer(p.id, p.name, i, team, p.isBot == true)
   end
   m:startRound(1)
   return m
 end
 
-function Match:addPlayer(id, name, index)
+function Match:addPlayer(id, name, index, team, isBot)
   if self.info[id] then return end
   self.players[#self.players + 1] = id
-  self.info[id] = { id = id, name = name or ("Pilot" .. id), slot = index or #self.players }
-  self.scores[id] = { wins = 0, kills = 0, roundKills = 0 }
+  self.info[id] = {
+    id = id, name = name or ("Pilot" .. id), slot = index or #self.players,
+    team = team or id, bot = isBot == true,
+  }
+  self.teams[id] = team or id
+  self.bots[id] = isBot == true or nil
+  if isBot then self.aiStates[id] = AI.newState() end
+  self.scores[id] = {
+    wins = 0, kills = 0, roundKills = 0, team = team or id,
+  }
   self.inputs[id] = { queue = {}, last = nil, ack = 0 }
 end
 
@@ -67,40 +88,68 @@ function Match:removePlayer(id)
   self.scores[id] = nil
   self.inputs[id] = nil
   self.respawns[id] = nil
+  self.teams[id] = nil
+  self.bots[id] = nil
+  self.aiStates[id] = nil
   self.sim:removePlane(id)
   return #self.players >= 2
+end
+
+function Match:slotFor(id, index)
+  if self.teamMode then
+    local team = self.teams[id] or 1
+    local teamIndex = 0
+    for _, pid in ipairs(self.players) do
+      if (self.teams[pid] or 1) == team then
+        teamIndex = teamIndex + 1
+        if pid == id then break end
+      end
+    end
+    local left = team == 1
+    return {
+      x = left and (C.WORLD.wallLeft + 60) or (C.WORLD.wallRight - 60),
+      y = (teamIndex % 2 == 1) and 140 or 380,
+      angle = left and 0 or math.pi,
+    }
+  end
+  local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
+  return slots[((index - 1) % #slots) + 1]
 end
 
 function Match:startRound(number)
   self.round = number
   self.phase = "round"
   self.roundWinner = nil
+  self.teamKills = { [1] = 0, [2] = 0 }
 
   self.sim:resetBullets()
   self.sim:resetPickups()
   self.respawns = {}
 
   for i, id in ipairs(self.players) do
-    local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
-    local slot = slots[((i - 1) % #slots) + 1]
+    local slot = self:slotFor(id, i)
     local plane = self.sim:getPlane(id)
+    local team = self.teams[id] or id
     if not plane then
       plane = self.sim:addPlane({
         id = id, x = slot.x, y = slot.y, angle = slot.angle,
         speed = 120, throttle = 0.7, name = self.info[id].name,
-        team = id, hp = C.PLANE.hp,
+        team = team, hp = C.PLANE.hp,
       })
     else
       Flight.reset(plane, slot.x, slot.y, slot.angle)
       plane.throttle = 0.7
       plane.invuln = 2
+      plane.team = team
     end
     plane.throttle = 0.7
     plane.invuln = 2
+    plane.team = team
     self.scores[id].roundKills = 0
     self.inputs[id].queue = {}
     self.inputs[id].last = nil
     self.inputs[id].ack = 0
+    if self.aiStates[id] then self.aiStates[id] = AI.newState() end
   end
 
   self.events[#self.events + 1] = {
@@ -128,19 +177,36 @@ end
 
 function Match:finishRound(winner)
   self.roundWinner = winner
-  if winner and self.scores[winner] then
+  if self.teamMode then
+    local team = winner
+    self.teamWins[team] = (self.teamWins[team] or 0) + 1
+    for _, id in ipairs(self.players) do
+      if self.teams[id] == team and self.scores[id] then
+        self.scores[id].wins = self.scores[id].wins + 1
+      end
+    end
+  elseif winner and self.scores[winner] then
     self.scores[winner].wins = self.scores[winner].wins + 1
   end
 
   self.events[#self.events + 1] = {
     type = "round_end", round = self.round, winner = winner,
+    winnerTeam = self.teamMode and winner or nil,
   }
 
   if self.round >= C.ROUNDS then
     local bestId, bestWins, bestKills = nil, -1, -1
-    for id, score in pairs(self.scores) do
-      if score.wins > bestWins or (score.wins == bestWins and score.kills > bestKills) then
-        bestId, bestWins, bestKills = id, score.wins, score.kills
+    if self.teamMode then
+      for team = 1, 2 do
+        if (self.teamWins[team] or 0) > bestWins then
+          bestId, bestWins = team, self.teamWins[team]
+        end
+      end
+    else
+      for id, score in pairs(self.scores) do
+        if score.wins > bestWins or (score.wins == bestWins and score.kills > bestKills) then
+          bestId, bestWins, bestKills = id, score.wins, score.kills
+        end
       end
     end
     self.champion = bestId
@@ -148,6 +214,7 @@ function Match:finishRound(winner)
     self.prepTime = C.PREP_TIME
     self.events[#self.events + 1] = {
       type = "match_end", champion = bestId, scores = self.scores,
+      teamMode = self.teamMode, teamWins = self.teamWins,
     }
   else
     self.phase = "break"
@@ -172,11 +239,11 @@ function Match:respawnPlane(id)
     if pid == id then index = i; break end
   end
   if not index then return end
-  local slots = (#self.players == 3) and C.SPAWNS3 or SLOTS
-  local slot = slots[((index - 1) % #slots) + 1]
+  local slot = self:slotFor(id, index)
   Flight.reset(plane, slot.x, slot.y, slot.angle)
   plane.throttle = 0.7
   plane.invuln = 2
+  plane.team = self.teams[id] or id
   local st = self.inputs[id]
   if st then
     st.queue = {}
@@ -185,6 +252,20 @@ function Match:respawnPlane(id)
   self.events[#self.events + 1] = {
     type = "respawn", id = id, x = slot.x, y = slot.y, angle = slot.angle,
   }
+end
+
+function Match:enemyTarget(plane)
+  local best, bestDist = nil, math.huge
+  for _, pid in ipairs(self.players) do
+    local other = self.sim:getPlane(pid)
+    if other and other.alive and pid ~= plane.id
+      and (not self.teamMode or self.teams[pid] ~= self.teams[plane.id]) then
+      local dx, dy = other.x - plane.x, other.y - plane.y
+      local d = dx * dx + dy * dy
+      if d < bestDist then best, bestDist = other, d end
+    end
+  end
+  return best
 end
 
 function Match:stepRound(dt)
@@ -200,9 +281,16 @@ function Match:stepRound(dt)
   for _, id in ipairs(self.players) do
     local st = self.inputs[id]
     local plane = self.sim:getPlane(id)
-    local input = table.remove(st.queue, 1) or st.last or neutral(plane)
-    if input.seq and input.seq > st.ack then st.ack = input.seq end
-    st.last = input
+    local input
+    if self.bots[id] and plane and plane.alive then
+      input = AI.input(plane, self:enemyTarget(plane), self.sim,
+        self.aiStates[id] or AI.newState(), dt)
+      input.seq = 0
+    else
+      input = table.remove(st.queue, 1) or st.last or neutral(plane)
+      if input.seq and input.seq > st.ack then st.ack = input.seq end
+      st.last = input
+    end
     inputs[id] = input
   end
 
@@ -213,6 +301,10 @@ function Match:stepRound(dt)
       if e.killer and self.scores[e.killer] then
         self.scores[e.killer].kills = self.scores[e.killer].kills + 1
         self.scores[e.killer].roundKills = self.scores[e.killer].roundKills + 1
+        if self.teamMode then
+          local team = self.teams[e.killer]
+          self.teamKills[team] = (self.teamKills[team] or 0) + 1
+        end
       end
       if e.victim and self.scores[e.victim] and self.respawns[e.victim] == nil then
         self.respawns[e.victim] = C.PLANE.respawnTime
@@ -225,11 +317,21 @@ function Match:stepRound(dt)
   end
 
   local winner
-  for _, id in ipairs(self.players) do
-    local score = self.scores[id]
-    if score and score.roundKills >= C.ROUND_KILLS then
-      if not winner or score.roundKills > self.scores[winner].roundKills then
-        winner = id
+  if self.teamMode then
+    for team = 1, 2 do
+      if (self.teamKills[team] or 0) >= C.ROUND_KILLS then
+        if not winner or self.teamKills[team] > self.teamKills[winner] then
+          winner = team
+        end
+      end
+    end
+  else
+    for _, id in ipairs(self.players) do
+      local score = self.scores[id]
+      if score and score.roundKills >= C.ROUND_KILLS then
+        if not winner or score.roundKills > self.scores[winner].roundKills then
+          winner = id
+        end
       end
     end
   end
@@ -286,6 +388,7 @@ function Match:buildSnapshot()
         alive = p.alive,
         hidden = Clouds.pointInside(self.sim.clouds, p.x, p.y),
         seenBy = seenBy,
+        team = self.teams[id] or id,
         throttle = r2(p.throttle),
         ammo = p.ammo,
         parts = {
@@ -303,6 +406,7 @@ function Match:buildSnapshot()
   for _, b in ipairs(self.sim.bullets) do
     bullets[#bullets + 1] = {
       x = r2(b.x), y = r2(b.y), vx = r2(b.vx), vy = r2(b.vy), owner = b.owner,
+      team = b.team,
     }
   end
 
@@ -319,7 +423,8 @@ function Match:buildSnapshot()
   local scores = {}
   for id, score in pairs(self.scores) do
     scores[#scores + 1] = {
-      id = id, wins = score.wins, kills = score.kills, roundKills = score.roundKills,
+      id = id, wins = score.wins, kills = score.kills,
+      roundKills = score.roundKills, team = score.team,
     }
   end
 
@@ -339,6 +444,9 @@ function Match:buildSnapshot()
     timer = r2(self:timer()),
     champion = self.champion,
     roundWinner = self.roundWinner,
+    teamMode = self.teamMode,
+    teamKills = self.teamKills,
+    teamWins = self.teamWins,
     planes = planes,
     bullets = bullets,
     pickups = pickups,

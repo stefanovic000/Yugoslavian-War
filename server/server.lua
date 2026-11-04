@@ -254,22 +254,36 @@ end
 
 function Server:playerInfo(room)
   local list = {}
-  for _, id in ipairs(room.players) do
+  local teamMode = room.mode == "2v2"
+  for i, id in ipairs(room.players) do
     local c = self.clients[id]
     if c then
-      list[#list + 1] = { id = id, name = c.name or ("Pilot" .. id) }
+      list[#list + 1] = {
+        id = id, name = c.name or ("Pilot" .. id), isBot = false,
+        team = teamMode and (((i - 1) % 2) + 1) or id,
+      }
     end
+  end
+  local humans = #list
+  for b = 1, (room.bots or 0) do
+    local index = humans + b
+    list[#list + 1] = {
+      id = -b, name = "BOT " .. tostring(b), isBot = true,
+      team = teamMode and (((index - 1) % 2) + 1) or (-b),
+    }
   end
   return list
 end
 
 function Server:roomState(room)
   local players = {}
-  for _, id in ipairs(room.players) do
+  local teamMode = room.mode == "2v2"
+  for i, id in ipairs(room.players) do
     local c = self.clients[id]
     if c then
       players[#players + 1] = {
         id = id, name = c.name or ("Pilot" .. id), host = (id == room.hostId),
+        bot = false, team = teamMode and (((i - 1) % 2) + 1) or id,
       }
     end
   end
@@ -290,6 +304,8 @@ function Server:roomState(room)
       players = players,
       spectators = spectators,
       max = C.MAX_PLAYERS,
+      bots = room.bots or 0,
+      mode = room.mode or "ffa",
       round = room.match and room.match.round or 0,
       phase = room.match and room.match.phase or "lobby",
       champion = room.match and room.match.champion or nil,
@@ -305,7 +321,9 @@ function Server:roomSummary(room)
     host = room.hostId,
     hostName = host and host.name or "?",
     status = room.status,
-    players = #room.players,
+    players = #room.players + (room.bots or 0),
+    bots = room.bots or 0,
+    mode = room.mode or "ffa",
     spectators = #room.spectators,
     max = C.MAX_PLAYERS,
     round = room.match and room.match.round or 0,
@@ -377,7 +395,7 @@ end
 
 function Server:startMatch(room)
   local players = self:playerInfo(room)
-  room.match = Match.new(players, self:randomSeed())
+  room.match = Match.new(players, self:randomSeed(), { mode = room.mode })
   room.status = "playing"
   self:matchStart(room)
   self:broadcastRoom(room)
@@ -429,6 +447,8 @@ function Server:createRoom(client, msg)
     hostId = client.id,
     players = { client.id },
     spectators = {},
+    bots = 0,
+    mode = "ffa",
     bannedIps = {},
     bannedIds = {},
     status = "lobby",
@@ -468,6 +488,10 @@ function Server:joinRoom(client, msg)
   else
     room.players[#room.players + 1] = client.id
     client.spectator = false
+    -- A human takes priority over a reserved bot slot.
+    if room.bots and #room.players + room.bots > C.MAX_PLAYERS then
+      room.bots = math.max(0, C.MAX_PLAYERS - #room.players)
+    end
   end
   client.room = room.id
 
@@ -653,11 +677,25 @@ function Server.handlers.start(self, client)
     return
   end
   if room.status ~= "lobby" then return end
-  if #room.players < C.MIN_PLAYERS then
-    self:send(client, { type = "error", message = "At least 2 pilots are needed." })
+  if #room.players + (room.bots or 0) < C.MIN_PLAYERS then
+    self:send(client, { type = "error", message = "At least 2 pilots or bots are needed." })
     return
   end
   self:startMatch(room)
+end
+
+function Server.handlers.room_settings(self, client, msg)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.hostId ~= client.id or room.status ~= "lobby" then return end
+  local mode = msg.mode == "2v2" and "2v2" or "ffa"
+  local bots = math.floor(tonumber(msg.bots) or room.bots or 0)
+  bots = math.max(0, math.min(C.MAX_PLAYERS, bots))
+  bots = math.min(bots, C.MAX_PLAYERS - #room.players)
+  room.mode = mode
+  room.bots = bots
+  self:broadcastRoom(room)
+  self:broadcastRooms()
 end
 
 function Server.handlers.kick(self, client, msg)

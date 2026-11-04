@@ -27,6 +27,7 @@ function Sim.new(opts)
     pickupTimer = 6,
     nextBulletId = 1,
     events = {},
+    teamMode = opts.teamMode == true,
   }, Sim)
 end
 
@@ -168,7 +169,9 @@ function Sim:step(inputs, dt)
     else
       for _, pid in ipairs(self.planeOrder) do
         local plane = self.planes[pid]
-        if plane and plane.alive and plane.id ~= b.owner then
+        local owner = self.planes[b.owner]
+        if plane and plane.alive and plane.id ~= b.owner
+          and not (self.teamMode and owner and owner.team == plane.team) then
           local part = Combat.bulletHitsPlane(b, plane, self.w, self.h)
           if part then
             local applied = Flight.applyDamage(plane, part, b.damage)
@@ -202,7 +205,9 @@ function Sim:step(inputs, dt)
     for b = a + 1, #self.planeOrder do
       local pa = self.planes[self.planeOrder[a]]
       local pb = self.planes[self.planeOrder[b]]
-      if pa and pb and pa.alive and pb.alive and Combat.planesRam(pa, pb, self.w, self.h) then
+      if pa and pb and pa.alive and pb.alive
+        and not (self.teamMode and pa.team == pb.team)
+        and Combat.planesRam(pa, pb, self.w, self.h) then
         local d = M.delta(pa.x, pb.x, self.w)
         local push = (d >= 0) and 1 or -1
         pa.x = M.wrap(pa.x - push * 4, self.w)

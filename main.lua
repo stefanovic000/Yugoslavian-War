@@ -5,7 +5,7 @@
 local cli = require("src.core.cli")
 local opts = cli.parse(arg)
 
-_G.DOGFIGHT = { version = "0.2.6", opts = opts }
+_G.DOGFIGHT = { version = "0.3.0", opts = opts }
 
 -- Dedicated server mode. Runs headless from the same checkout; the Ubuntu
 -- deployment uses server/run.lua with LuaSocket instead.

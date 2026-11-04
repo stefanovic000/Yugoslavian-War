@@ -2,6 +2,13 @@
 -- generated waveform so the game stays a single, portable folder.
 
 local C = require("shared.constants")
+local Settings = require("src.game.settings")
+
+local function gain()
+  local d = Settings.data
+  if not d then return 1 end
+  return (d.masterVolume or 1) * (d.effectsVolume or 1)
+end
 
 local Audio = {
   enabled = true,
@@ -101,7 +108,7 @@ function Audio.play(name, volume, pitch)
   local base = Audio.sources[name]
   if not base then return end
   local src = base:clone()
-  src:setVolume(clamp(volume or 0.25, 0, 1))
+  src:setVolume(clamp((volume or 0.25) * gain(), 0, 1))
   src:setPitch(pitch or (0.94 + love.math.random() * 0.12))
   pcall(src.play, src)
 end
@@ -137,7 +144,7 @@ function Audio.setEngine(id, dx, dy, throttle, active, occluded)
   local dist = math.sqrt(dx * dx + dy * dy)
   local vol = clamp(1 - dist / 700, 0.015, 0.16)
   if occluded then vol = vol * 0.55 end
-  e.src:setVolume(vol)
+  e.src:setVolume(clamp(vol * gain(), 0, 1))
   e.src:setPitch(0.70 + clamp(throttle or 0.6, 0, 1) * 0.50)
   e.src:setPosition(clamp(dx / 320, -1, 1), 0, -1)
 end

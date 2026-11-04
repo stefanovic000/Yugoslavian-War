@@ -21,6 +21,7 @@ local Camera = require("src.game.camera")
 local Vision = require("shared.vision")
 local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
+local Controls = require("src.game.controls")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -164,8 +165,8 @@ function Solo:inputForPlayer(dt)
     return { throttle = p.throttle, pitch = 0, fire = false }
   end
 
-  local up = love.keyboard.isDown("w") or love.keyboard.isDown("up")
-  local down = love.keyboard.isDown("s") or love.keyboard.isDown("down")
+  local up = Controls.isDown("throttleUp")
+  local down = Controls.isDown("throttleDown")
   if up and not down then
     self.input.throttle = math.min(1, self.input.throttle + 1.2 * dt)
   elseif down and not up then
@@ -175,8 +176,8 @@ function Solo:inputForPlayer(dt)
   -- A/D are plane-relative: A always rotates counter-clockwise, D clockwise.
   -- Facing right that is A=up/D=down; facing left it is D=up/A=down.
   -- The newest pressed direction stays active until it is released.
-  local a = love.keyboard.isDown("a") or love.keyboard.isDown("left")
-  local d = love.keyboard.isDown("d") or love.keyboard.isDown("right")
+  local a = Controls.isDown("pitchLeft")
+  local d = Controls.isDown("pitchRight")
   if a and not self.aDown then self.lastPitchKey = "a" end
   if d and not self.dDown then self.lastPitchKey = "d" end
   if self.lastPitchKey == "a" and not a then self.lastPitchKey = nil end
@@ -190,7 +191,7 @@ function Solo:inputForPlayer(dt)
     pitch = 1
   end
   self.input.pitch = pitch
-  self.input.fire = love.keyboard.isDown("space")
+  self.input.fire = Controls.isDown("fire")
   return self.input
 end
 
@@ -635,7 +636,10 @@ function Solo:drawHud()
     love.graphics.rectangle("fill", 154, 288, 332, 18)
     love.graphics.setFont(UI.font(8))
     love.graphics.setColor(UI.C.cream[1], UI.C.cream[2], UI.C.cream[3], alpha)
-    love.graphics.printf("W/S THROTTLE   /   A/D PITCH   /   SPACE FIRE   /   ESC PAUSE", 154, 293, 332, "center")
+    love.graphics.printf(string.format("%s/%s THROTTLE   /   %s/%s PITCH   /   %s FIRE   /   ESC PAUSE",
+      Controls.label("throttleUp"), Controls.label("throttleDown"),
+      Controls.label("pitchLeft"), Controls.label("pitchRight"),
+      Controls.label("fire")), 154, 293, 332, "center")
   end
 
   if Settings.data.showFps then

@@ -16,6 +16,7 @@ local Camera = require("src.game.camera")
 local Vision = require("shared.vision")
 local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
+local Controls = require("src.game.controls")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -43,6 +44,7 @@ local function copyServerPlane(target, sp)
   target.ammo = sp.ammo
   target.heat = sp.heat or 0
   target.jammed = sp.jam or 0
+  target.team = sp.team or target.team
   target.parts.engine = sp.parts.engine
   target.parts.wing = sp.parts.wing
   target.parts.tail = sp.parts.tail
@@ -71,6 +73,7 @@ function NetMatch:enter(client, startMsg)
   self.localBullets = {}
   self.localFireTimer = 0
   self.spectator = startMsg.spectator == true
+  self.spectateId = nil
   self.leavePrompt = false
   self.promptChoice = 2
   self.hover = nil
@@ -127,6 +130,7 @@ function NetMatch:applyStart(msg)
   self.wasStalling = false
   self.camera = Camera.new()
   self.reveal = {}
+  self.spectateId = nil
   self.history = {}
   self.seq = 0
   self.ack = 0
@@ -308,11 +312,13 @@ function NetMatch:processEvents(events)
       self.leavePrompt = false
       self.promptChoice = 2
     elseif e.type == "round_end" then
-      local name = e.winner and self.names[e.winner] or "NOBODY"
+      local name = e.winnerTeam and ("TEAM " .. e.winnerTeam)
+        or (e.winner and self.names[e.winner] or "NOBODY")
       self:setBanner("ROUND OVER  /  " .. name:upper(), 2.2)
     elseif e.type == "match_end" then
       self.champion = e.champion
-      local name = e.champion and self.names[e.champion] or "NOBODY"
+      local name = (e.teamMode and e.champion) and ("TEAM " .. e.champion)
+        or (e.champion and self.names[e.champion] or "NOBODY")
       self:setBanner("MATCH OVER  /  " .. name:upper(), 3)
     end
   end
@@ -326,10 +332,16 @@ function NetMatch:onSnapshot(msg)
   self.timer = msg.timer
   self.champion = msg.champion
   self.roundWinner = msg.roundWinner
+  self.teamMode = msg.teamMode == true
+  self.teamKills = msg.teamKills or { [1] = 0, [2] = 0 }
+  self.teamWins = msg.teamWins or { [1] = 0, [2] = 0 }
 
   self.scores = {}
   for _, s in ipairs(msg.scores or {}) do
-    self.scores[s.id] = { wins = s.wins, kills = s.kills, roundKills = s.roundKills or 0 }
+    self.scores[s.id] = {
+      wins = s.wins, kills = s.kills, roundKills = s.roundKills or 0,
+      team = s.team,
+    }
   end
 
   self.respawns = {}
@@ -360,7 +372,7 @@ function NetMatch:onSnapshot(msg)
       v = {
         x = sp.x, y = sp.y, angle = sp.a, hp = sp.hp,
         alive = sp.alive, hidden = sp.hidden == true, parts = sp.parts, ammo = sp.ammo,
-        seenBy = sp.seenBy,
+        seenBy = sp.seenBy, team = sp.team,
       }
       self.visuals[sp.id] = v
     end
@@ -383,10 +395,11 @@ function NetMatch:onSnapshot(msg)
     if not self.localPlane then
       self.localPlane = Flight.new({
         id = self.selfId, x = own.x, y = own.y, angle = own.a, speed = 200,
-        team = self.selfId, name = self.names[self.selfId] or "Pilot",
+        team = own.team or self.selfId, name = self.names[self.selfId] or "Pilot",
       })
     end
     copyServerPlane(self.localPlane, own)
+    self.localTeam = own.team or self.selfId
     self.ack = own.ack or 0
 
     local keep = {}
@@ -414,6 +427,7 @@ function NetMatch:updateVisuals(dt)
       v.alive = target.alive
       v.hidden = target.hidden == true
       v.seenBy = target.seenBy
+      v.team = target.team
       v.parts = target.parts
       v.ammo = target.ammo
     end
@@ -433,17 +447,45 @@ function NetMatch:updateCamera(dt)
   if self.localPlane and self.localPlane.alive and not self.spectator then
     target = self.localPlane
   else
-    local sx, sy, n = 0, 0, 0
+    local list = {}
     for id, v in pairs(self.visuals) do
       if v.alive and id ~= self.selfId then
-        sx, sy, n = sx + v.x, sy + v.y, n + 1
+        list[#list + 1] = { id = id, x = v.x, y = v.y }
       end
     end
-    if n > 0 then
-      target = { x = sx / n, y = sy / n }
+    table.sort(list, function(a, b) return a.id < b.id end)
+    local chosen = nil
+    for _, item in ipairs(list) do
+      if item.id == self.spectateId then chosen = item; break end
+    end
+    if not chosen and #list > 0 then
+      chosen = list[1]
+      local best = -1
+      for _, item in ipairs(list) do
+        local score = self.scores[item.id]
+        local value = score and (score.wins * 100 + score.kills) or -1
+        if value > best then best, chosen = value, item end
+      end
+    end
+    if chosen then
+      self.spectateId = chosen.id
+      target = chosen
     end
   end
   if target then Camera.follow(self.camera, target.x, target.y, dt) end
+end
+
+function NetMatch:cycleSpectator(dir)
+  local ids = {}
+  for id, v in pairs(self.visuals) do
+    if v.alive and id ~= self.selfId then ids[#ids + 1] = id end
+  end
+  table.sort(ids)
+  if #ids == 0 then return end
+  local current = 1
+  for i, id in ipairs(ids) do if id == self.spectateId then current = i; break end end
+  current = ((current - 1 + dir) % #ids) + 1
+  self.spectateId = ids[current]
 end
 
 function NetMatch:update(dt)
@@ -533,8 +575,8 @@ function NetMatch:inputForTick()
   local p = self.localPlane
   if not p or not p.alive or self.spectator then return nil end
 
-  local up = love.keyboard.isDown("w") or love.keyboard.isDown("up")
-  local down = love.keyboard.isDown("s") or love.keyboard.isDown("down")
+  local up = Controls.isDown("throttleUp")
+  local down = Controls.isDown("throttleDown")
   if up and not down then
     self.input.throttle = math.min(1, self.input.throttle + 1.2 * C.TICK)
   elseif down and not up then
@@ -543,8 +585,8 @@ function NetMatch:inputForTick()
 
   -- A/D are plane-relative: A always rotates counter-clockwise, D clockwise.
   -- The newest pressed direction stays active until it is released.
-  local a = love.keyboard.isDown("a") or love.keyboard.isDown("left")
-  local d = love.keyboard.isDown("d") or love.keyboard.isDown("right")
+  local a = Controls.isDown("pitchLeft")
+  local d = Controls.isDown("pitchRight")
   if a and not self.aDown then self.lastPitchKey = "a" end
   if d and not self.dDown then self.lastPitchKey = "d" end
   if self.lastPitchKey == "a" and not a then self.lastPitchKey = nil end
@@ -558,7 +600,7 @@ function NetMatch:inputForTick()
     pitch = 1
   end
   self.input.pitch = pitch
-  self.input.fire = love.keyboard.isDown("space")
+  self.input.fire = Controls.isDown("fire")
     or (_G.DOGFIGHT and _G.DOGFIGHT.opts and _G.DOGFIGHT.opts.autofire == true)
   return self.input
 end
@@ -579,7 +621,7 @@ function NetMatch:updateLocalBullets(dt, input)
       vx = math.cos(a) * C.BULLET.speed,
       vy = math.sin(a) * C.BULLET.speed,
       life = C.BULLET.life,
-      team = 1,
+      team = self.localTeam or 1,
     }
     self.particles:muzzle(x, y, a, { 0.55, 0.95, 0.95 })
     p.heat = math.min(1, (p.heat or 0) + C.GUN.heatPerShot)
@@ -663,7 +705,7 @@ function NetMatch:drawWorld()
         local bullet = {
           x = b.x + b.vx * age, y = b.y + b.vy * age,
           vx = b.vx, vy = b.vy, owner = b.owner,
-          team = 2,
+          team = b.team or 2,
         }
         if bullet.x > -10 and bullet.x < W + 10 and bullet.y > -10 and bullet.y < H + 10
           and not Clouds.pointInside(self.clouds, bullet.x, bullet.y) then
@@ -678,7 +720,7 @@ function NetMatch:drawWorld()
       if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight
         and b.y > -10 and b.y < C.WORLD.groundY
         and not Clouds.pointInside(self.clouds, b.x, b.y) then
-        Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = 1 })
+        Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = b.team or self.localTeam or 1 })
       end
     end
     for _, p in ipairs(snap.pickups or {}) do
@@ -708,15 +750,24 @@ function NetMatch:drawWorld()
         local plane = {
           x = v.x, y = v.y, angle = v.angle, throttle = 0.6, alive = true,
           invuln = 0, hitFlash = 0, parts = v.parts or {},
-          team = id == 1 and 1 or 2,
+          team = v.team or 2,
         }
+        local friendly = self.teamMode and v.team == self.localTeam
+        local colors
+        if self.teamMode then
+          colors = (v.team == 1) and Sprites.TEAM.player or Sprites.TEAM.enemy
+        elseif friendly then
+          colors = Sprites.TEAM.player
+        else
+          colors = Sprites.TEAM.enemy
+        end
         Sprites.drawPlaneCopies(plane, self.uiTime, {
-          colors = Sprites.TEAM.enemy,
+          colors = colors,
           alpha = reveal and 0.25 or 1,
         })
         if visible then
           love.graphics.setFont(UI.font(7))
-          UI.set(UI.C.cream)
+          UI.set(friendly and UI.C.teal or UI.C.cream)
           local labelX = M.clamp(v.x - 30, C.WORLD.wallLeft, C.WORLD.wallRight - 60)
           local barX = M.clamp(v.x - 15, C.WORLD.wallLeft + 2, C.WORLD.wallRight - 32)
           love.graphics.printf(self.names[id] or ("PILOT" .. id), labelX, v.y - 28, 60, "center")
@@ -732,7 +783,9 @@ function NetMatch:drawWorld()
   local playerHidden = false
   if self.localPlane and self.localPlane.alive then
     playerHidden = self.localHidden
-    Sprites.drawPlaneCopies(self.localPlane, self.uiTime, { colors = Sprites.TEAM.player })
+    local localColors = (self.teamMode and self.localTeam == 2)
+      and Sprites.TEAM.enemy or Sprites.TEAM.player
+    Sprites.drawPlaneCopies(self.localPlane, self.uiTime, { colors = localColors })
   end
 
   if dd.enabled then
@@ -766,7 +819,9 @@ function NetMatch:drawWorld()
   end
 
   if playerHidden and self.localPlane then
-    Sprites.drawPlaneCopies(self.localPlane, self.uiTime, { colors = Sprites.TEAM.player, alpha = 0.55 })
+    local ghostColors = (self.teamMode and self.localTeam == 2)
+      and Sprites.TEAM.enemy or Sprites.TEAM.player
+    Sprites.drawPlaneCopies(self.localPlane, self.uiTime, { colors = ghostColors, alpha = 0.55 })
   end
 
   love.graphics.pop()
@@ -786,9 +841,25 @@ function NetMatch:drawHud()
   love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, C.ROUNDS), 236, 14, 168, "center")
   UI.set(UI.C.orange)
   local localKills = (self.scores[self.selfId] and self.scores[self.selfId].roundKills) or 0
-  local target = self.spectator and ("FIRST TO " .. C.ROUND_KILLS)
-    or string.format("K %d/%d", localKills, C.ROUND_KILLS)
-  love.graphics.printf(target, 300, 14, 104, "right")
+  local target
+  if self.teamMode then
+    target = string.format("T1 %d/%d   T2 %d/%d",
+      self.teamKills[1] or 0, C.ROUND_KILLS,
+      self.teamKills[2] or 0, C.ROUND_KILLS)
+  elseif self.spectator then
+    target = "FIRST TO " .. C.ROUND_KILLS
+  else
+    target = string.format("K %d/%d", localKills, C.ROUND_KILLS)
+  end
+  if self.teamMode then
+    UI.set(UI.C.ink, 0.62)
+    love.graphics.rectangle("fill", 236, 34, 168, 16)
+    UI.set(UI.C.orange)
+    love.graphics.setFont(UI.font(7, true))
+    love.graphics.printf(target, 236, 38, 168, "center")
+  else
+    love.graphics.printf(target, 300, 14, 104, "right")
+  end
 
   -- local hull
   if p and not self.spectator then
@@ -865,7 +936,11 @@ function NetMatch:drawHud()
   -- scoreboard
   local rows = {}
   for id, s in pairs(self.scores or {}) do
-    rows[#rows + 1] = { id = id, wins = s.wins, kills = s.kills, roundKills = s.roundKills or 0, name = self.names[id] or ("P" .. id) }
+    rows[#rows + 1] = {
+      id = id, wins = s.wins, kills = s.kills,
+      roundKills = s.roundKills or 0, team = s.team,
+      name = self.names[id] or ("P" .. id),
+    }
   end
   table.sort(rows, function(a, b)
     if a.wins ~= b.wins then return a.wins > b.wins end
@@ -875,7 +950,9 @@ function NetMatch:drawHud()
   love.graphics.setFont(UI.font(7))
   local scoreW = 96
   for _, r in ipairs(rows) do
-    local text = string.format("%s  %dW/%dK  R%d", r.name, r.wins, r.kills, r.roundKills or 0)
+    local text = string.format("%s%s  %dW/%dK  R%d",
+      self.teamMode and ("T" .. tostring(r.team or "?") .. " ") or "",
+      r.name, r.wins, r.kills, r.roundKills or 0)
     scoreW = math.max(scoreW, UI.font(7):getWidth(text) + 16)
   end
   scoreW = math.min(230, scoreW)
@@ -886,8 +963,16 @@ function NetMatch:drawHud()
   love.graphics.rectangle("line", scoreX + 0.5, 60.5, scoreW - 1, 51)
   for i = 1, math.min(4, #rows) do
     local r = rows[i]
-    UI.set(r.id == self.selfId and UI.C.orange or UI.C.cream2)
-    love.graphics.printf(string.format("%s  %dW/%dK  R%d", r.name, r.wins, r.kills, r.roundKills or 0),
+    if r.id == self.selfId then
+      UI.set(UI.C.orange)
+    elseif self.teamMode then
+      UI.set((r.team == 1) and UI.C.teal or UI.C.cream2)
+    else
+      UI.set(UI.C.cream2)
+    end
+    love.graphics.printf(string.format("%s%s  %dW/%dK  R%d",
+      self.teamMode and ("T" .. tostring(r.team or "?") .. " ") or "",
+      r.name, r.wins, r.kills, r.roundKills or 0),
       scoreX + 7, 64 + (i - 1) * 11, scoreW - 13, "right")
   end
 
@@ -907,6 +992,15 @@ function NetMatch:drawHud()
     else
       love.graphics.printf("SPECTATING  /  NEXT ROUND", 0, 142, 640, "center")
     end
+  end
+
+  if (self.spectator or (p and not p.alive)) and self.spectateId then
+    UI.set(UI.C.ink, 0.55)
+    love.graphics.rectangle("fill", 170, 160, 300, 14)
+    UI.set(UI.C.cream)
+    love.graphics.setFont(UI.font(7))
+    love.graphics.printf("FOLLOWING " .. (self.names[self.spectateId] or ("P" .. self.spectateId))
+      .. "   /   [ ] SWITCH", 170, 164, 300, "center")
   end
 
   if p and p.alive and not self.spectator and p.stalling then
@@ -930,7 +1024,10 @@ function NetMatch:drawHud()
     love.graphics.rectangle("fill", 170, 288, 300, 16)
     UI.set(UI.C.cream2, alpha)
     love.graphics.setFont(UI.font(7))
-    love.graphics.printf("W/S THROTTLE  /  A/D PITCH  /  SPACE FIRE  /  ESC MENU", 170, 293, 300, "center")
+    love.graphics.printf(string.format("%s/%s THROTTLE  /  %s/%s PITCH  /  %s FIRE  /  ESC MENU",
+      Controls.label("throttleUp"), Controls.label("throttleDown"),
+      Controls.label("pitchLeft"), Controls.label("pitchRight"),
+      Controls.label("fire")), 170, 293, 300, "center")
   end
 
   if self.noticeTimer > 0 and self.notice then
@@ -962,7 +1059,9 @@ function NetMatch:drawHud()
     love.graphics.printf("MATCH OVER", 160, 244, 320, "center")
     love.graphics.setFont(UI.font(8))
     UI.set(UI.C.cream)
-    local championName = self.champion and self.names[self.champion] or "NOBODY"
+    local championName = (self.teamMode and self.champion)
+      and ("TEAM " .. tostring(self.champion))
+      or (self.champion and self.names[self.champion] or "NOBODY")
     love.graphics.printf("CHAMPION: " .. championName:upper(), 160, 262, 320, "center")
     love.graphics.printf(string.format("NEXT MATCH IN %.0f", math.max(0, self.timer or 0)), 160, 274, 320, "center")
     if self.spectator and not self.joinQueued then
@@ -1047,6 +1146,12 @@ function NetMatch:keypressed(key)
     self.promptChoice = 2
   elseif key == "j" then
     self:requestJoinNext()
+  elseif self.spectator or (self.localPlane and not self.localPlane.alive) then
+    if key == "[" or key == "left" then
+      self:cycleSpectator(-1)
+    elseif key == "]" or key == "right" then
+      self:cycleSpectator(1)
+    end
   end
 end
 

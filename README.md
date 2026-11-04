@@ -20,7 +20,8 @@ procedurally. There are no large art packs and no runtime downloads.
 
 - **Solo test flight** against a demo AI that manages throttle, energy and stall recovery.
 - **Online rooms** for 2–4 pilots: create, join, spectate and start without a ready-up step.
-- **Kill-scored matches**: first to 5 kills wins a round, 5 rounds per match, then a full reset.
+- **2v2 team mode** with host-controlled bot fill; add or remove bots in Room Settings.
+- **Kill-scored matches**: first to 5 kills/team kills wins a round, 5 rounds per match, then a full reset.
 - **3-second respawns** for every pilot, solo and online.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
@@ -33,8 +34,9 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Energy flight model**: thrust along the nose, gravity, lift, drag, turn drag and engine braking.
 - **Modular damage**: engine, wing, tail and guns each have their own health and affect flight.
 - **Parachute ammo crates**, swept hitboxes and a fixed 60 Hz simulation.
-- **Host kick with room ban**, room browser, spectator slots and a 10-second next-match prep.
-- **Settings**: callsign, server address/port, fullscreen, FPS counter and screen shake.
+- **Host room settings** for FFA/2v2 and 0–3 bots, plus a separate Settings button.
+- **Settings**: callsign, server address/port, fullscreen, FPS counter, screen shake, rebindable flight controls and master/effects volume sliders.
+- **Improved spectator camera**: follows the leader and switches targets with `[` and `]`.
 - **Debug toolkit**: console, live watches, hitbox/cloud debug draw, profiler, screenshots and crash reports.
 
 ## Screenshots
@@ -182,7 +184,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 45 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 46 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 
@@ -229,5 +231,5 @@ docs/                      screenshots and debugging guide
 
 ## Status
 
-Version **0.2.6**. The game is in active playtesting: flight feel, network
+Version **0.3.0**. The game is in active playtesting: flight feel, network
 visibility, respawns, gun heat and room lifecycle are the current focus.
