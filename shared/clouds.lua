@@ -5,6 +5,7 @@
 local C = require("shared.constants")
 local M = require("shared.mathx")
 local Rng = require("shared.rng")
+local Shapes = require("shared.cloud_shapes")
 
 local Clouds = {}
 
@@ -48,14 +49,7 @@ function Clouds.new(seed, count, opts)
       cluster = cluster,
       puffs = {},
     }
-    local puffs = rng:int(5, 8)
-    for j = 1, puffs do
-      cloud.puffs[j] = {
-        dx = rng:range(-r * 0.55, r * 0.55),
-        dy = rng:range(-r * 0.24, r * 0.24),
-        r = r * rng:range(0.38, 0.62),
-      }
-    end
+    cloud.puffs = Shapes.puffs(cloud.variant, r)
     list[i] = cloud
   end
 
@@ -83,7 +77,9 @@ function Clouds.pointInside(clouds, x, y)
     for _, puff in ipairs(cloud.puffs) do
       local dx = cloud.x + puff.dx - x
       local dy = cloud.y + puff.dy - y
-      if dx * dx + dy * dy <= puff.r * puff.r then
+      local rx = puff.rx or puff.r
+      local ry = puff.ry or puff.r
+      if (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1 then
         return true
       end
     end
@@ -95,8 +91,13 @@ end
 function Clouds.segmentBlocked(clouds, x1, y1, x2, y2)
   for _, cloud in ipairs(clouds.list) do
     for _, puff in ipairs(cloud.puffs) do
-      local px, py = cloud.x + puff.dx, cloud.y + puff.dy
-      if M.segmentPointDist2(px, py, x1, y1, x2, y2) <= puff.r * puff.r then
+      local cx = cloud.x + puff.dx
+      local cy = cloud.y + puff.dy
+      local rx = puff.rx or puff.r
+      local ry = puff.ry or puff.r
+      local nx1, ny1 = (x1 - cx) / rx, (y1 - cy) / ry
+      local nx2, ny2 = (x2 - cx) / rx, (y2 - cy) / ry
+      if M.segmentPointDist2(0, 0, nx1, ny1, nx2, ny2) <= 1 then
         return true
       end
     end
@@ -117,8 +118,9 @@ function Clouds.avoidPoints(clouds, points, margin)
     for _, puff in ipairs(cloud.puffs) do
       local dx = cloud.x + puff.dx - point.x
       local dy = cloud.y + puff.dy - point.y
-      local rr = puff.r + margin
-      if dx * dx + dy * dy < rr * rr then return true end
+      local rx = (puff.rx or puff.r) + margin
+      local ry = (puff.ry or puff.r) + margin
+      if (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) < 1 then return true end
     end
     return false
   end

@@ -54,16 +54,23 @@ local function firstCloudHit(viewer, angle, maxDist, clouds)
   local best = maxDist
   for _, cloud in ipairs(clouds.list) do
     for _, puff in ipairs(cloud.puffs) do
-      local px = cloud.x + puff.dx - viewer.x
-      local py = cloud.y + puff.dy - viewer.y
-      local t = px * cx + py * cy
-      if t > 0 and t < best then
-        local d2 = px * px + py * py - t * t
-        local rr = puff.r * puff.r
-        if d2 <= rr then
-          local hit = t - math.sqrt(rr - d2)
-          if hit >= 0 and hit < best then best = hit end
-        end
+      local rx = puff.rx or puff.r
+      local ry = puff.ry or puff.r
+      local px = cloud.x + puff.dx
+      local py = cloud.y + puff.dy
+      local ox = (viewer.x - px) / rx
+      local oy = (viewer.y - py) / ry
+      local dx = cx / rx
+      local dy = cy / ry
+      local a = dx * dx + dy * dy
+      local b = 2 * (ox * dx + oy * dy)
+      local c = ox * ox + oy * oy - 1
+      local disc = b * b - 4 * a * c
+      if disc >= 0 then
+        local root = math.sqrt(disc)
+        local hit = (-b - root) / (2 * a)
+        if hit < 0 then hit = (-b + root) / (2 * a) end
+        if hit >= 0 and hit < best then best = hit end
       end
     end
   end

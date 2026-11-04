@@ -2,6 +2,7 @@
 -- fast and every plane/cloud scales crisply in the 640x360 canvas.
 
 local C = require("shared.constants")
+local Shapes = require("shared.cloud_shapes")
 local M = require("shared.mathx")
 
 local Sprites = {}
@@ -260,12 +261,7 @@ local CLOUD_LEVELS = {
 local function makeCloudImage(variant)
   local w, h = 96, 56
   local data = love.image.newImageData(w, h)
-  local sets = {
-    { { 30, 34, 18, 12 }, { 48, 28, 24, 16 }, { 66, 34, 16, 11 }, { 39, 23, 14, 10 } },
-    { { 28, 32, 16, 11 }, { 45, 28, 22, 15 }, { 63, 33, 18, 12 }, { 78, 38, 9, 7 } },
-    { { 34, 30, 20, 13 }, { 54, 32, 22, 14 }, { 70, 34, 13, 9 }, { 22, 38, 9, 7 } },
-  }
-  local blobs = sets[variant] or sets[1]
+  local blobs = Shapes.blobs(variant)
   data:mapPixel(function(px, py)
     local x, y = px + 0.5, py + 0.5
     local mask = 0
