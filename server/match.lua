@@ -268,6 +268,8 @@ function Match:buildSnapshot()
         vx = r2(p.vx), vy = r2(p.vy),
         a = r2(p.angle),
         pv = r2(p.pitchVel or 0),
+        heat = r2(p.heat or 0),
+        jam = r2(p.jammed or 0),
         hp = math.floor(p.hp),
         alive = p.alive,
         hidden = Clouds.pointInside(self.sim.clouds, p.x, p.y),

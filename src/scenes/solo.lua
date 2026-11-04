@@ -16,6 +16,7 @@ local Settings = require("src.game.settings")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
+local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -89,6 +90,7 @@ function Solo:enter()
   self.hitMarker = 0
   self.hitX, self.hitY = 0, 0
   self.hullGhost = 1
+  self.wasStalling = false
   self.partFlash = { engine = 0, wing = 0, tail = 0, guns = 0 }
 
   self:registerDebug()
@@ -185,9 +187,11 @@ end
 function Solo:handleEvents(events)
   for _, e in ipairs(events) do
     if e.type == "shot" then
+      Audio.play("shot", e.owner == 1 and 0.20 or 0.10)
       self.particles:muzzle(e.x, e.y, e.angle, e.owner == 1 and { 0.55, 0.95, 0.95 } or { 1, 0.7, 0.3 })
       if e.owner == 1 then self.shake = math.max(self.shake, 0.4) end
     elseif e.type == "hit" then
+      Audio.play("hit", e.victim == 1 and 0.30 or 0.20)
       self.particles:hit(e.x, e.y, 0, e.victim == 1 and { 1, 0.4, 0.3 } or { 1, 0.8, 0.4 })
       if e.owner == 1 then
         self.hitMarker = 0.18
@@ -199,6 +203,7 @@ function Solo:handleEvents(events)
         self.partFlash[e.part] = 0.30
       end
     elseif e.type == "kill" then
+      Audio.play("explosion", e.victim == 1 and 0.55 or 0.65)
       local color = e.victim == 1 and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
       self.particles:explosion(e.x, e.y, color, e.victim == 1 and 1.5 or 1.0)
       if e.victim == 1 then
@@ -216,6 +221,7 @@ function Solo:handleEvents(events)
         self.shake = math.max(self.shake, 5)
       end
     elseif e.type == "crash" then
+      Audio.play("explosion", 0.7)
       self.particles:explosion(e.x, e.y, { 0.95, 0.58, 0.25 }, e.victim == 1 and 1.4 or 1)
       self.shake = math.max(self.shake, 7)
       if e.victim == 1 then
@@ -229,14 +235,23 @@ function Solo:handleEvents(events)
         self.noticeTimer = 1.8
       end
     elseif e.type == "pickup" then
+      Audio.play("pickup", e.player == 1 and 0.24 or 0.10)
       if e.player == 1 then
         self.notice = "AMMO +" .. tostring(e.ammo)
         self.noticeTimer = 1.6
         self.particles:flash(e.x, e.y, 5, 0.15, { 1, 0.85, 0.4 })
       end
     elseif e.type == "ram" then
+      Audio.play("ram", 0.35)
       self.shake = math.max(self.shake, 5)
       self.particles:flash(e.x, e.y, 6, 0.12, { 1, 0.8, 0.4 })
+    elseif e.type == "overheat" then
+      Audio.play("overheat", e.player == 1 and 0.42 or 0.16)
+      if e.player == 1 then
+        self.notice = "GUNS JAMMED"
+        self.noticeTimer = 1.6
+        self.shake = math.max(self.shake, 2)
+      end
     end
   end
 end
@@ -261,6 +276,7 @@ function Solo:respawnPlayer()
   self.hullGhost = 1
   self.aDown, self.dDown = false, false
   self.lastPitchKey = nil
+  self.wasStalling = false
 end
 
 function Solo:respawnEnemy()
@@ -336,6 +352,11 @@ function Solo:update(dt)
     self.partFlash[k] = math.max(0, v - dt)
   end
   self.hullGhost = damp(self.hullGhost, self.player.hp / self.player.maxHp, 4, dt)
+
+  if self.player.alive and self.player.stalling and not self.wasStalling then
+    Audio.play("stall", 0.22)
+  end
+  self.wasStalling = self.player.stalling
 
   local mx, my = View.mouse()
   self.hover = nil
@@ -524,6 +545,15 @@ function Solo:drawHud()
   love.graphics.setFont(UI.font(14, true))
   UI.set(p.ammo > 0 and UI.C.cream or UI.C.red)
   love.graphics.printf(tostring(p.ammo), 520, 326, 104, "right")
+  love.graphics.setFont(UI.font(6))
+  if (p.jammed or 0) > 0 then
+    UI.set(UI.C.red)
+    love.graphics.print(string.format("JAM %.1f", p.jammed), 520, 340)
+  else
+    UI.set(UI.C.cream2)
+    love.graphics.print("HEAT", 520, 340)
+  end
+  UI.heat(556, 343, 68, 4, p.heat or 0, p.jammed or 0)
 
   -- warnings
   local blink = math.floor(self.uiTime * 6) % 2 == 0

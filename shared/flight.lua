@@ -41,6 +41,8 @@ function Flight.new(opts)
     ammo = P.ammo,
     maxAmmo = P.maxAmmo,
     fireTimer = 0,
+    heat = 0,
+    jammed = 0,
     ramCooldown = 0,
     alive = true,
     stalling = false,
@@ -69,6 +71,8 @@ function Flight.reset(plane, x, y, angle)
   plane.ammo = P.ammo
   plane.maxAmmo = P.maxAmmo
   plane.fireTimer = 0
+  plane.heat = 0
+  plane.jammed = 0
   plane.ramCooldown = 0
   plane.alive = true
   plane.stalling = false
@@ -103,7 +107,9 @@ function Flight.gunFactor(plane)
 end
 
 function Flight.canFire(plane)
-  return plane.alive and plane.ammo > 0 and plane.parts.guns > 0 and plane.fireTimer <= 0
+  return plane.alive and plane.ammo > 0 and plane.parts.guns > 0
+    and plane.fireTimer <= 0 and (plane.jammed or 0) <= 0
+    and (plane.heat or 0) < 1
 end
 
 function Flight.fireInterval(plane)
@@ -128,6 +134,12 @@ end
 
 function Flight.step(plane, input, dt)
   if not plane.alive then return end
+
+  if (plane.jammed or 0) > 0 then
+    plane.jammed = plane.jammed - dt
+    if plane.jammed < 0 then plane.jammed = 0 end
+  end
+  plane.heat = M.clamp((plane.heat or 0) - C.GUN.coolRate * dt, 0, 1)
   input = input or {}
 
   local speed = Flight.speed(plane)

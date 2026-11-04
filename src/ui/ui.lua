@@ -173,4 +173,16 @@ function UI.screenDim(alpha)
   love.graphics.rectangle("fill", 0, 0, 640, 360)
 end
 
+-- Thin gun-heat meter. `jam` greater than zero paints the bar red.
+function UI.heat(x, y, w, h, value, jam)
+  UI.set(C.ink3)
+  love.graphics.rectangle("fill", x, y, w, h)
+  local v = math.max(0, math.min(1, value or 0))
+  local col = (jam or 0) > 0 and C.red or (v > 0.72 and C.red or (v > 0.45 and C.orange or C.teal))
+  UI.set(col)
+  love.graphics.rectangle("fill", x, y, w * v, h)
+  UI.set(C.ink, 0.65)
+  love.graphics.rectangle("line", x + 0.5, y + 0.5, w - 1, h - 1)
+end
+
 return UI

@@ -11,6 +11,7 @@ local Settings = require("src.game.settings")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
+local Audio = require("src.game.audio")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -36,6 +37,8 @@ local function copyServerPlane(target, sp)
   target.alive = sp.alive
   target.throttle = sp.throttle
   target.ammo = sp.ammo
+  target.heat = sp.heat or 0
+  target.jammed = sp.jam or 0
   target.parts.engine = sp.parts.engine
   target.parts.wing = sp.parts.wing
   target.parts.tail = sp.parts.tail
@@ -58,6 +61,7 @@ function NetMatch:enter(client, startMsg)
   self.history = {}
   self.localPlane = nil
   self.localHidden = false
+  self.wasStalling = false
   self.localBullets = {}
   self.localFireTimer = 0
   self.spectator = startMsg.spectator == true
@@ -113,6 +117,7 @@ function NetMatch:applyStart(msg)
   self.visuals = {}
   self.localPlane = nil
   self.localHidden = false
+  self.wasStalling = false
   self.history = {}
   self.seq = 0
   self.ack = 0
@@ -203,10 +208,12 @@ function NetMatch:processEvents(events)
       -- Own shots get a locally predicted muzzle flash so the flash, tracer
       -- and nose agree even when the authoritative snapshot is in flight.
       if e.owner ~= self.selfId then
+        Audio.play("shot", 0.09)
         self.particles:muzzle(e.x, e.y, e.angle, { 1, 0.7, 0.3 })
       end
       if e.owner == self.selfId then self.shake = math.max(self.shake, 0.35) end
     elseif e.type == "hit" then
+      Audio.play("hit", e.victim == self.selfId and 0.30 or 0.16)
       self.particles:hit(e.x, e.y, 0, e.victim == self.selfId and { 1, 0.4, 0.3 } or { 1, 0.8, 0.4 })
       if e.owner == self.selfId then
         self.hitMarker = 0.18
@@ -218,6 +225,7 @@ function NetMatch:processEvents(events)
         self.partFlash[e.part] = 0.30
       end
     elseif e.type == "kill" then
+      Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
       self.particles:explosion(e.x, e.y, color, e.victim == self.selfId and 1.5 or 1)
       if e.victim == self.selfId then
@@ -228,26 +236,36 @@ function NetMatch:processEvents(events)
         self.noticeTimer = 1.3
       end
     elseif e.type == "pickup" then
+      Audio.play("pickup", e.player == self.selfId and 0.24 or 0.08)
       if e.player == self.selfId then
         self.notice = "AMMO +" .. tostring(e.ammo)
         self.noticeTimer = 1.4
       end
       self.particles:flash(e.x, e.y, 5, 0.15, { 1, 0.85, 0.4 })
     elseif e.type == "ram" then
+      Audio.play("ram", 0.30)
       self.shake = math.max(self.shake, 5)
       self.particles:flash(e.x, e.y, 6, 0.12, { 1, 0.8, 0.4 })
     elseif e.type == "respawn" then
+      Audio.play("respawn", e.id == self.selfId and 0.28 or 0.08)
       if e.id == self.selfId then
         self.notice = "RESPAWNED"
         self.noticeTimer = 1.2
       end
       self.particles:flash(e.x, e.y, 6, 0.2, { 0.55, 0.9, 0.7 })
     elseif e.type == "crash" then
+      Audio.play("explosion", 0.6)
       self.particles:explosion(e.x, e.y, { 0.95, 0.58, 0.25 }, e.victim == self.selfId and 1.4 or 1)
       if e.victim == self.selfId then
         self.notice = "CRASHED"
         self.noticeTimer = 1.4
         self.shake = math.max(self.shake, 7)
+      end
+    elseif e.type == "overheat" then
+      Audio.play("overheat", e.player == self.selfId and 0.42 or 0.12)
+      if e.player == self.selfId then
+        self.notice = "GUNS JAMMED"
+        self.noticeTimer = 1.6
       end
     elseif e.type == "round_start" then
       self:setBanner("ROUND " .. tostring(e.round), 1.6)
@@ -258,6 +276,7 @@ function NetMatch:processEvents(events)
       self.ack = 0
       self.localPlane = nil
       self.localHidden = false
+      self.wasStalling = false
       self.aDown, self.dDown = false, false
       self.lastPitchKey = nil
       self.respawns = {}
@@ -406,6 +425,10 @@ function NetMatch:update(dt)
   for k, v in pairs(self.partFlash) do self.partFlash[k] = math.max(0, v - dt) end
   if self.localPlane then
     self.hullGhost = damp(self.hullGhost, self.localPlane.hp / self.localPlane.maxHp, 4, dt)
+    if self.localPlane.alive and self.localPlane.stalling and not self.wasStalling then
+      Audio.play("stall", 0.22)
+    end
+    self.wasStalling = self.localPlane.stalling
   end
 
   if self.phase == "round" then
@@ -449,8 +472,6 @@ function NetMatch:inputForTick()
     self.input.throttle = math.max(0, self.input.throttle - 1.2 * C.TICK)
   end
 
-  local a = love.keyboard.isDown("a") or love.keyboard.isDown("left")
-  local d = love.keyboard.isDown("d") or love.keyboard.isDown("right")
   -- A/D are plane-relative: A always rotates counter-clockwise, D clockwise.
   -- The newest pressed direction stays active until it is released.
   local a = love.keyboard.isDown("a") or love.keyboard.isDown("left")
@@ -479,7 +500,8 @@ function NetMatch:updateLocalBullets(dt, input)
 
   self.localFireTimer = math.max(0, self.localFireTimer - dt)
   if input and input.fire and p.alive and not self.spectator
-    and (p.parts.guns or 0) > 0 and (p.ammo or 0) > 0 and self.localFireTimer <= 0 then
+    and (p.parts.guns or 0) > 0 and (p.ammo or 0) > 0
+    and (p.jammed or 0) <= 0 and (p.heat or 0) < 1 and self.localFireTimer <= 0 then
     self.localFireTimer = C.PLANE.fireInterval * (1 + (1 - Flight.gunFactor(p)) * 1.4)
     local a = p.angle + (love.math.random() - 0.5) * 2 * C.BULLET.spread
     local x, y = Combat.toWorld(p, 18, 0)
@@ -492,6 +514,9 @@ function NetMatch:updateLocalBullets(dt, input)
       team = 1,
     }
     self.particles:muzzle(x, y, a, { 0.55, 0.95, 0.95 })
+    p.heat = math.min(1, (p.heat or 0) + C.GUN.heatPerShot)
+    if p.heat >= 1 then p.jammed = C.GUN.jamTime end
+    Audio.play("shot", 0.18)
     self.shake = math.max(self.shake, 0.35)
   end
 
@@ -744,6 +769,15 @@ function NetMatch:drawHud()
     love.graphics.setFont(UI.font(12, true))
     UI.set(p.ammo > 0 and UI.C.cream or UI.C.red)
     love.graphics.printf(tostring(p.ammo), 520, 326, 104, "right")
+    love.graphics.setFont(UI.font(6))
+    if (p.jammed or 0) > 0 then
+      UI.set(UI.C.red)
+      love.graphics.print(string.format("JAM %.1f", p.jammed), 520, 340)
+    else
+      UI.set(UI.C.cream2)
+      love.graphics.print("HEAT", 520, 340)
+    end
+    UI.heat(556, 343, 68, 4, p.heat or 0, p.jammed or 0)
   end
 
   -- scoreboard

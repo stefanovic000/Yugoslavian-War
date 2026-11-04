@@ -22,6 +22,8 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Online rooms** for 2–4 pilots: create, join, spectate and start without a ready-up step.
 - **Kill-scored matches**: first to 5 kills wins a round, 5 rounds per match, then a full reset.
 - **3-second respawns** for every pilot, solo and online.
+- **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
+- **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
 - **Low ground** at the bottom of the arena. Touch it and the aircraft explodes and respawns.
 - **Cloud cover** that actually hides aircraft. Cloud positions and per-plane visibility are server-authoritative.
 - **Energy flight model**: thrust along the nose, gravity, lift, drag, turn drag and engine braking.
@@ -171,7 +173,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 36 unit tests (flight, hitboxes, clouds, rounds, protocol)
+test.bat        :: 37 unit tests (flight, hitboxes, clouds, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 
@@ -218,5 +220,5 @@ docs/                      screenshots and debugging guide
 
 ## Status
 
-Version **0.2.2**. The game is in active playtesting: flight feel, network
-visibility, respawns and room lifecycle are the current focus.
+Version **0.2.3**. The game is in active playtesting: flight feel, network
+visibility, respawns, gun heat and room lifecycle are the current focus.

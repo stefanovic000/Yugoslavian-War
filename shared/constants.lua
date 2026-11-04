@@ -5,7 +5,7 @@
 
 local C = {
   GAME_NAME = "Yugoslavian War",
-  VERSION = "0.2.2",
+  VERSION = "0.2.3",
 
   WORLD = { w = 800, h = 450, scale = 0.8, groundY = 365 },
   SPAWNS = {
@@ -55,6 +55,12 @@ local C = {
     damage = 8,
     radius = 1.8,
     spread = 0.008,
+  },
+
+  GUN = {
+    heatPerShot = 0.095,
+    coolRate = 0.34,
+    jamTime = 2.5,
   },
 
   PICKUP = {

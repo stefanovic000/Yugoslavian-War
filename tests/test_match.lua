@@ -99,6 +99,8 @@ cases[#cases + 1] = {
       "snapshot cloud position mismatch")
     for _, p in ipairs(snap.planes) do
       assert(type(p.hidden) == "boolean", "plane hidden state missing")
+      assert(type(p.heat) == "number" and type(p.jam) == "number",
+        "gun heat state missing from snapshot")
     end
   end,
 }

@@ -90,6 +90,14 @@ function Sim:tryFire(plane, input)
   if not Flight.canFire(plane) then return false end
   plane.ammo = math.max(0, plane.ammo - 1)
   plane.fireTimer = Flight.fireInterval(plane)
+  plane.heat = math.min(1, (plane.heat or 0) + C.GUN.heatPerShot)
+  if plane.heat >= 1 then
+    plane.jammed = C.GUN.jamTime
+    self.events[#self.events + 1] = {
+      type = "overheat", player = plane.id,
+      x = plane.x, y = plane.y,
+    }
+  end
   self:spawnBullet(plane)
   return true
 end

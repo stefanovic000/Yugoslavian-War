@@ -331,4 +331,26 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "gun heat jams and recovers",
+  fn = function()
+    local sim = newSim(15)
+    local p = sim:addPlane({ id = 1, x = 400, y = 225, angle = 0, speed = 130, throttle = 0.7 })
+    local overheat = false
+    for _ = 1, 20 do
+      p.fireTimer = 0
+      sim:tryFire(p, { fire = true })
+      for _, e in ipairs(sim.events) do
+        if e.type == "overheat" and e.player == 1 then overheat = true end
+      end
+    end
+    assert(overheat, "overheat event missing")
+    assert((p.jammed or 0) > 0, "guns did not jam")
+    assert(not Flight.canFire(p), "jammed guns can still fire")
+    for _ = 1, 200 do sim:step({ [1] = { throttle = 0.7, pitch = 0, fire = false } }, C.TICK) end
+    assert((p.jammed or 0) == 0 and p.heat < 1, "guns did not recover")
+    assert(Flight.canFire(p), "guns did not become fireable again")
+  end,
+}
+
 return cases
