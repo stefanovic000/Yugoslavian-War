@@ -262,9 +262,11 @@ function Solo:handleEvents(events)
         self.particles:flash(e.x, e.y, 5, 0.15, { 1, 0.85, 0.4 })
       end
     elseif e.type == "ram" then
-      Audio.play("ram", 0.35)
-      self.shake = math.max(self.shake, 5)
-      self.particles:flash(e.x, e.y, 6, 0.12, { 1, 0.8, 0.4 })
+      Audio.play("ram", 0.30)
+      Audio.play("explosion", 0.55)
+      self.shake = math.max(self.shake, 8)
+      self.particles:explosion(e.x, e.y, { 1, 0.55, 0.22 }, 1.15)
+      self.particles:flash(e.x, e.y, 8, 0.18, { 1, 0.85, 0.45 })
     elseif e.type == "overheat" then
       Audio.play("overheat", e.player == 1 and 0.42 or 0.16)
       if e.player == 1 then

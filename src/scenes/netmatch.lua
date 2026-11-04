@@ -266,8 +266,10 @@ function NetMatch:processEvents(events)
       self.particles:flash(e.x, e.y, 5, 0.15, { 1, 0.85, 0.4 })
     elseif e.type == "ram" then
       Audio.play("ram", 0.30)
-      self.shake = math.max(self.shake, 5)
-      self.particles:flash(e.x, e.y, 6, 0.12, { 1, 0.8, 0.4 })
+      Audio.play("explosion", 0.50)
+      self.shake = math.max(self.shake, 8)
+      self.particles:explosion(e.x, e.y, { 1, 0.55, 0.22 }, 1.15)
+      self.particles:flash(e.x, e.y, 8, 0.18, { 1, 0.85, 0.45 })
     elseif e.type == "respawn" then
       Audio.play("respawn", e.id == self.selfId and 0.28 or 0.08)
       if e.id == self.selfId then
@@ -863,7 +865,7 @@ function NetMatch:drawHud()
   -- scoreboard
   local rows = {}
   for id, s in pairs(self.scores or {}) do
-    rows[#rows + 1] = { id = id, wins = s.wins, kills = s.kills, name = self.names[id] or ("P" .. id) }
+    rows[#rows + 1] = { id = id, wins = s.wins, kills = s.kills, roundKills = s.roundKills or 0, name = self.names[id] or ("P" .. id) }
   end
   table.sort(rows, function(a, b)
     if a.wins ~= b.wins then return a.wins > b.wins end
