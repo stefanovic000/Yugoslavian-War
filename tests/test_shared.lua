@@ -223,13 +223,27 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
-  name = "a swept shot catches a moving target's previous pose",
+  name = "relative sweep catches a target and bullet crossing paths",
   fn = function()
     local sim = newSim(23)
-    local target = sim:addPlane({ id = 1, x = 320, y = 150, angle = 0, invuln = 0 })
-    local bullet = { owner = 2, px = 295, py = 180, x = 345, y = 180 }
-    local part = Combat.bulletHitsPlaneAt(bullet, target, 320, 180, 0, sim.w, sim.h)
-    assert(part ~= nil, "swept target pose missed")
+    local target = sim:addPlane({ id = 1, x = 320, y = 200, angle = 0, invuln = 0 })
+    local bullet = { owner = 2, px = 100, py = 160, x = 500, y = 160 }
+    local part = Combat.bulletHitsMovingPlane(bullet, target, 320, 100, 0, sim.w, sim.h)
+    assert(part ~= nil, "crossing relative paths missed")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "relative sweep does not hit a target that left the old pose",
+  fn = function()
+    local sim = newSim(24)
+    local target = sim:addPlane({ id = 1, x = 320, y = 200, angle = 0, invuln = 0 })
+    -- The bullet line crosses y=100 (the target's old position) but by the
+    -- time the bullet reaches x=320 the target has moved to y=200. Absolute
+    -- past-pose testing would incorrectly register this.
+    local bullet = { owner = 2, px = 100, py = 100, x = 500, y = 100 }
+    local part = Combat.bulletHitsMovingPlane(bullet, target, 320, 100, 0, sim.w, sim.h)
+    assert(part == nil, "relative sweep hit a past pose")
   end,
 }
 

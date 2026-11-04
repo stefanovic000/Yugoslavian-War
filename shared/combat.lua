@@ -96,6 +96,27 @@ function Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
     worldW, worldH)
 end
 
+-- Continuous relative sweep for a bullet and a moving target during one tick.
+-- The bullet segment is expressed in the target's frame:
+--   (bulletStart - targetStart) -> (bulletEnd - targetEnd)
+-- This is not a hit against a past pose; it is the actual separation path over
+-- the same interval.
+function Combat.bulletHitsMovingPlane(bullet, plane, prevX, prevY, prevAngle, worldW, worldH)
+  if not plane.alive or bullet.owner == plane.id then return nil end
+  if not prevX or not prevY then
+    return Combat.bulletHitsPlane(bullet, plane, worldW, worldH)
+  end
+  local rel = {
+    owner = bullet.owner,
+    px = bullet.px - prevX,
+    py = bullet.py - prevY,
+    x = bullet.x - (plane.x or prevX),
+    y = bullet.y - (plane.y or prevY),
+  }
+  return Combat.bulletHitsPlaneAt(rel, plane, 0, 0, prevAngle or plane.angle,
+    worldW, worldH)
+end
+
 function Combat.pickupHitsPlane(pickup, plane, worldW, worldH)
   local dx, dy = pickup.x - plane.x, pickup.y - plane.y
   local r = pickup.radius + plane.radius

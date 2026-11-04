@@ -183,13 +183,8 @@ function Sim:step(inputs, dt)
         local owner = self.planes[b.owner]
         if plane and plane.alive and plane.id ~= b.owner
           and not (self.teamMode and owner and owner.team == plane.team) then
-          local part = Combat.bulletHitsPlane(b, plane, self.w, self.h)
-          if not part and plane.prevX then
-            -- The target also moves each tick. Test the previous target pose
-            -- as well so a crossing pair of fast objects cannot skip.
-            part = Combat.bulletHitsPlaneAt(b, plane, plane.prevX, plane.prevY,
-              plane.prevAngle or plane.angle, self.w, self.h)
-          end
+          local part = Combat.bulletHitsMovingPlane(b, plane,
+            plane.prevX, plane.prevY, plane.prevAngle, self.w, self.h)
           if part then
             local applied = Flight.applyDamage(plane, part, b.damage)
             events[#events + 1] = {
