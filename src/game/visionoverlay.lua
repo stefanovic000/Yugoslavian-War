@@ -45,6 +45,31 @@ function VisionOverlay.draw(viewer, camera, clouds)
 
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(mask, 0, 0, 0, 2, 2)
+
+  -- A short, capped shadow tail on the far side of every cloud. The union mask
+  -- only marks the outer boundary, so stacked/offscreen cones otherwise made it
+  -- look like only some clouds were blocking anything.
+  if clouds then
+    local scaleScreen = C.WORLD.scale
+    for _, cloud in ipairs(clouds.list) do
+      local dx, dy = cloud.x - viewer.x, cloud.y - viewer.y
+      local dist = math.sqrt(dx * dx + dy * dy)
+      if dist > 1 then
+        local ux, uy = dx / dist, dy / dist
+        local sx = cloud.x + ux * cloud.r * 0.45
+        local sy = cloud.y + uy * cloud.r * 0.45
+        for j = 1, 4 do
+          local back = cloud.r * (0.25 + j * 0.28)
+          local x = (sx + ux * back - camX) * scaleScreen
+          local y = (sy + uy * back - camY) * scaleScreen
+          love.graphics.setColor(0.008, 0.016, 0.024, 0.11 - j * 0.020)
+          love.graphics.ellipse("fill", x, y,
+            cloud.r * scaleScreen * (0.82 - j * 0.10),
+            cloud.r * scaleScreen * (0.48 - j * 0.06))
+        end
+      end
+    end
+  end
 end
 
 return VisionOverlay

@@ -5,7 +5,7 @@
 
 local C = {
   GAME_NAME = "Yugoslavian War",
-  VERSION = "0.2.4",
+  VERSION = "0.2.5",
 
   WORLD = {
     w = 1000, h = 520, scale = 0.8,
