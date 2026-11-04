@@ -21,6 +21,7 @@ local SHAPES = {
   { part = "wing",   x = -8,  y = 4,  r = 3.6 },
   { part = "tail",   x = -13, y = 0,  r = 4.2 },
   { part = "tail",   x = -16, y = -5, r = 3.2 },
+  { part = "tail",   x = -18, y = -8, r = 2.8 },
 }
 
 Combat.SHAPES = SHAPES
@@ -82,7 +83,8 @@ function Combat.bulletHitsPlaneAt(bullet, plane, cx, cy, angle, worldW, worldH)
       local lx1, ly1 = worldToLocalMode(angle, dx1, dy1, mirror)
       local lx2, ly2 = worldToLocalMode(angle, dx2, dy2, mirror)
       for _, shape in ipairs(SHAPES) do
-        if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y, shape.r) then
+        if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y,
+          shape.r + (bullet.radius or 0)) then
           return shape.part, bullet.x, bullet.y
         end
       end
