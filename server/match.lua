@@ -291,14 +291,6 @@ function Match:enemyTarget(plane)
 end
 
 function Match:stepRound(dt)
-  for id in pairs(self.respawns) do
-    self.respawns[id] = self.respawns[id] - dt
-    if self.respawns[id] <= 0 then
-      self.respawns[id] = nil
-      self:respawnPlane(id)
-    end
-  end
-
   local inputs = {}
   for _, id in ipairs(self.players) do
     local st = self.inputs[id]
@@ -328,37 +320,35 @@ function Match:stepRound(dt)
           self.teamKills[team] = (self.teamKills[team] or 0) + 1
         end
       end
-      if e.victim and self.scores[e.victim] and self.respawns[e.victim] == nil then
-        self.respawns[e.victim] = C.PLANE.respawnTime
-      end
-    elseif e.type == "crash" then
-      if e.victim and self.scores[e.victim] and self.respawns[e.victim] == nil then
-        self.respawns[e.victim] = C.PLANE.respawnTime
-      end
     end
   end
 
   local winner
   if self.teamMode then
-    for team = 1, 2 do
-      if (self.teamKills[team] or 0) >= C.ROUND_KILLS then
-        if not winner or self.teamKills[team] > self.teamKills[winner] then
-          winner = team
-        end
+    local alive = { [1] = 0, [2] = 0 }
+    for _, id in ipairs(self.players) do
+      local p = self.sim:getPlane(id)
+      if p and p.alive then
+        local team = self.teams[id] or 1
+        alive[team] = (alive[team] or 0) + 1
       end
+    end
+    if alive[1] == 0 or alive[2] == 0 then
+      if alive[1] > 0 then winner = 1
+      elseif alive[2] > 0 then winner = 2 end
     end
   else
+    local alive, last = 0, nil
     for _, id in ipairs(self.players) do
-      local score = self.scores[id]
-      if score and score.roundKills >= C.ROUND_KILLS then
-        if not winner or score.roundKills > self.scores[winner].roundKills then
-          winner = id
-        end
-      end
+      local p = self.sim:getPlane(id)
+      if p and p.alive then alive = alive + 1; last = id end
     end
+    if alive <= 1 then winner = last end
   end
-  if winner then
+  if winner ~= nil or (self.teamMode and self:aliveCount() == 0) then
     self:finishRound(winner)
+  elseif not self.teamMode and self:aliveCount() == 0 then
+    self:finishRound(nil)
   end
 end
 

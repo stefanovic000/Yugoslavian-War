@@ -840,16 +840,20 @@ function NetMatch:drawHud()
   UI.set(UI.C.cream)
   love.graphics.printf(string.format("ROUND %d / %d", self.round or 1, C.ROUNDS), 236, 14, 168, "center")
   UI.set(UI.C.orange)
-  local localKills = (self.scores[self.selfId] and self.scores[self.selfId].roundKills) or 0
+  local aliveAll, aliveTeams = 0, { [1] = 0, [2] = 0 }
+  for id, v in pairs(self.visuals) do
+    if v.alive then
+      aliveAll = aliveAll + 1
+      if self.teamMode and (v.team == 1 or v.team == 2) then
+        aliveTeams[v.team] = aliveTeams[v.team] + 1
+      end
+    end
+  end
   local target
   if self.teamMode then
-    target = string.format("T1 %d/%d   T2 %d/%d",
-      self.teamKills[1] or 0, C.ROUND_KILLS,
-      self.teamKills[2] or 0, C.ROUND_KILLS)
-  elseif self.spectator then
-    target = "FIRST TO " .. C.ROUND_KILLS
+    target = string.format("T1 %d   T2 %d", aliveTeams[1] or 0, aliveTeams[2] or 0)
   else
-    target = string.format("K %d/%d", localKills, C.ROUND_KILLS)
+    target = "ALIVE " .. tostring(aliveAll)
   end
   if self.teamMode then
     UI.set(UI.C.ink, 0.62)

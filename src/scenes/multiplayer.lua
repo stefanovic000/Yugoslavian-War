@@ -461,7 +461,7 @@ function Multiplayer:drawLobby()
 
   UI.set(UI.C.cream2)
   love.graphics.setFont(UI.font(7))
-  love.graphics.print("5 ROUNDS  /  FIRST TO 5 KILLS WINS A ROUND", 40, 232)
+  love.graphics.print("5 ROUNDS  /  LAST PILOT OR TEAM FLYING WINS THE ROUND", 40, 232)
   love.graphics.print("AFTER ROUND 5: 10 SECONDS TO JOIN THE NEXT MATCH", 40, 244)
   love.graphics.print("CLOUDS HIDE PLANES  /  PARACHUTE CRATES REFILL AMMO", 40, 256)
   love.graphics.print(string.format("MODE %s   /   BOTS %d", (room.mode or "FFA"):upper(), room.bots or 0),

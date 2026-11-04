@@ -14,7 +14,7 @@ cases[#cases + 1] = {
     assert(m.phase == "round", "round 1 did not begin after prep")
 
     for round = 1, C.ROUNDS do
-      m.scores[1].roundKills = C.ROUND_KILLS
+      m.sim:getPlane(2).alive = false
       m:stepRound(C.TICK)
       if round < C.ROUNDS then
         assert(m.phase == "prep", "expected prep after round " .. round)
@@ -54,13 +54,14 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
-  name = "first pilot to the kill target wins the round",
+  name = "last pilot flying wins the round",
   fn = function()
     local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 9)
-    m.scores[2].roundKills = C.ROUND_KILLS
+    m:beginRound()
+    m.sim:getPlane(2).alive = false
     m:stepRound(C.TICK)
-    assert(m.phase == "break" or m.phase == "prep")
-    assert(m.roundWinner == 2, "pilot with kill target should win")
+    assert(m.phase == "prep" or m.phase == "finished")
+    assert(m.roundWinner == 1, "last pilot should win the round")
   end,
 }
 
@@ -75,17 +76,22 @@ cases[#cases + 1] = {
 }
 
 cases[#cases + 1] = {
-  name = "dead pilots respawn during the round",
+  name = "a dead pilot stays down until the next round",
   fn = function()
-    local m = Match.new({ { id = 1, name = "A" }, { id = 2, name = "B" } }, 12)
-    local p = m.sim:getPlane(1)
-    p.alive = false
-    p.hp = 0
-    m.respawns[1] = 0.01
+    local m = Match.new({
+      { id = 1, name = "A" }, { id = 2, name = "B" }, { id = 3, name = "C" },
+    }, 12)
+    m:beginRound()
+    local p1, p2, p3 = m.sim:getPlane(1), m.sim:getPlane(2), m.sim:getPlane(3)
+    p1.alive, p1.hp = false, 0
     m:stepRound(0.02)
-    assert(p.alive, "dead pilot did not respawn")
-    assert(p.hp == C.PLANE.hp, "respawn did not restore hull")
-    assert(m.respawns[1] == nil, "respawn timer was not cleared")
+    assert(not p1.alive, "pilot respawned inside the round")
+    assert(m.phase == "round", "round should continue with two pilots alive")
+    p2.alive, p3.alive = false, false
+    m:stepRound(0.02)
+    assert(m.phase == "prep", "all pilots down should end the round")
+    m:update(C.ROUND_BREAK + 0.01)
+    assert(p1.alive and p2.alive and p3.alive, "next round did not reset the planes")
   end,
 }
 
@@ -161,6 +167,7 @@ cases[#cases + 1] = {
     assert(bot.vx ~= 0 or bot.vy ~= 0, "bot AI did not produce movement")
 
     m.teamKills[1] = C.ROUND_KILLS
+    bot.alive = false
     m:stepRound(C.TICK)
     assert(m.roundWinner == 1, "team 1 should win the round")
     assert(m.scores[1].wins == 1, "team member did not receive the win")

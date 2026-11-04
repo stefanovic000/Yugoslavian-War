@@ -22,8 +22,8 @@ procedurally. There are no large art packs and no runtime downloads.
 - **Online rooms** for 2–4 pilots: create, join, spectate and start without a ready-up step.
 - **1v1 / 2v2 team modes** with a 3-second preparation before each round; after round 5 everyone returns to the same lobby with teams and settings preserved.
 - **Host-controlled bot fill and team assignment**, plus hosted spectator assignment. Joined pilots can pick Blue/Red with B/R.
-- **Kill-scored matches**: first to 5 kills/team kills wins a round, 5 rounds per match, then a full reset.
-- **3-second respawns** for every pilot, solo and online.
+- **One-life rounds**: last pilot/team flying wins the round; dead pilots spectate until the next round.
+- **Solo 3-second respawns**; online matches use one-life rounds and reset for the next round.
 - **Gun heat** with an overheat jam timeout, so holding fire constantly is punished.
 - **Procedural combat audio** for guns, hits, explosions, crashes, stalls, pickups and respawns.
 - **Camera-scrolled walled arena**: 1000×520 world, old-town building walls, no wrap, smooth clamped camera and extra vertical space to flank.
@@ -156,7 +156,7 @@ configured for TCP 7777.
   hidden beyond them or behind cloud. A faint firing silhouette lasts one
   second. There are no minimap or edge markers.
 - **Ground:** a low strip at `y = 445`; contact is a crash, not a kill. The
-  aircraft explodes and starts a respawn.
+  aircraft explodes and is out until the next round (solo respawns locally).
 - **Arena:** 1000×520 world units viewed through a smooth 800×450 camera at
   0.8× into a 640×360 pixel viewport. Solid old-town building walls at the
   sides; no horizontal wrap; fixed 60 Hz simulation.
