@@ -135,6 +135,23 @@ function Particles:debris(x, y, vx, vy, size, life, color)
   self:add(p)
 end
 
+function Particles:panel(x, y, vx, vy, points, color, life, angle, scale)
+  local p = self:acquire()
+  p.kind = "panel"
+  p.x, p.y, p.vx, p.vy = x, y, vx, vy
+  p.points = points
+  p.color = color or nowColor(0.30, 0.30, 0.26)
+  p.size, p.life, p.maxLife = 1, life or 1.2, life or 1.2
+  p.grow = 0
+  p.drag = 0.45
+  p.gravity = 190
+  p.rot = angle or 0
+  p.spin = (love.math.random() - 0.5) * 5
+  p.scale = scale or 1
+  p.sway = love.math.random() * math.pi * 2
+  self:add(p)
+end
+
 function Particles:update(dt)
   local items = self.items
   local i = 1
@@ -158,6 +175,10 @@ function Particles:update(dt)
       if p.kind == "debris" then
         p.vy = p.vy + (p.gravity or 0) * dt
         p.rot = (p.rot or 0) + (p.spin or 0) * dt
+      elseif p.kind == "panel" then
+        p.vy = p.vy + (p.gravity or 0) * dt
+        p.rot = (p.rot or 0) + (p.spin or 0) * dt
+        p.sway = (p.sway or 0) + dt * 3
       end
       p.x = p.x + p.vx * dt
       p.y = p.y + p.vy * dt
@@ -188,6 +209,8 @@ function Particles:draw()
     elseif p.kind == "cloud" then
       -- Cloud wisps and debris are drawn above the cloud layer.
     elseif p.kind == "debris" then
+      -- Drawn in the debris pass after clouds.
+    elseif p.kind == "panel" then
       -- Drawn in the debris pass after clouds.
     end
   end
@@ -235,16 +258,41 @@ end
 
 function Particles:drawDebris()
   love.graphics.push("all")
+  love.graphics.setLineWidth(1)
   for _, p in ipairs(self.items) do
     if p.kind == "debris" then
       local t = p.life / p.maxLife
+      local speed = math.sqrt(p.vx * p.vx + p.vy * p.vy)
+      if speed > 1 then
+        local ux, uy = p.vx / speed, p.vy / speed
+        local len = math.min(11, 2.2 + p.size * 2.4)
+        love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.68 * t)
+        love.graphics.line(p.x, p.y, p.x - ux * len, p.y - uy * len)
+        love.graphics.setColor(1, 1, 1, 0.38 * t)
+        love.graphics.line(p.x, p.y, p.x - ux * len * 0.5, p.y - uy * len * 0.5)
+      end
+    end
+  end
+  love.graphics.pop()
+end
+
+function Particles:drawPanels()
+  love.graphics.push("all")
+  for _, p in ipairs(self.items) do
+    if p.kind == "panel" then
+      local t = p.life / p.maxLife
+      local a = math.min(1, t * 1.7)
       love.graphics.push()
       love.graphics.translate(p.x, p.y)
-      love.graphics.rotate(p.rot or 0)
-      love.graphics.setColor(p.color[1], p.color[2], p.color[3], math.min(1, t * 1.5))
-      love.graphics.rectangle("fill", -p.size, -p.size * 0.36, p.size * 2, p.size * 0.72)
-      love.graphics.setColor(1, 1, 1, 0.18 * t)
-      love.graphics.rectangle("fill", -p.size * 0.7, -p.size * 0.18, p.size * 1.1, p.size * 0.25)
+      love.graphics.rotate((p.rot or 0) + math.sin(p.sway or 0) * 0.10)
+      love.graphics.scale(p.scale or 1)
+      love.graphics.setColor(p.color[1], p.color[2], p.color[3], a)
+      love.graphics.polygon("fill", p.points)
+      love.graphics.setColor(0.05, 0.06, 0.06, 0.75 * a)
+      love.graphics.setLineWidth(1)
+      love.graphics.polygon("line", p.points)
+      love.graphics.setColor(1, 1, 1, 0.15 * a)
+      love.graphics.line(p.points[1], p.points[2], p.points[3], p.points[4])
       love.graphics.pop()
     end
   end

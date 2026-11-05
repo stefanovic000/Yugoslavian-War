@@ -198,5 +198,10 @@ function PlaneArt.draw(plane, time, opts)
   end
 end
 
+function PlaneArt.getArt(planeType)
+  local spec = require("shared.aircraft").get(planeType)
+  return ARTS[spec.visual and spec.visual.art or "ik3"] or ARTS.ik3
+end
+
 return PlaneArt
 

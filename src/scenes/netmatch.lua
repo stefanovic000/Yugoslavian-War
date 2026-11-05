@@ -19,6 +19,7 @@ local Audio = require("src.game.audio")
 local Controls = require("src.game.controls")
 local Aircraft = require("shared.aircraft")
 local CloudFx = require("src.game.cloudfx")
+local PlaneArt = require("src.game.planeart")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -271,14 +272,41 @@ function NetMatch:throwDebris(e, part, count, speedMin, speedMax, sizeMin, sizeM
   end
 end
 
+function NetMatch:spawnPartPanel(e, part)
+  local v = self.visuals[e.victim]
+  if not v then return end
+  local art = PlaneArt.getArt(v.planeType or "ik3")
+  local points
+  if part == "wing" then points = art.wing
+  elseif part == "tail" then points = art.fin
+  elseif part == "guns" then points = art.tailplane
+  else points = art.nose end
+  if not points then return end
+  local friendly = self.teamMode and v.team == self.localTeam
+  local colors = (friendly or (not self.teamMode and e.victim == self.selfId))
+    and Sprites.TEAM.player or Sprites.TEAM.enemy
+  local dir = self:debrisDirection(e)
+  local a = dir + (love.math.random() - 0.5) * 1.2
+  local sp = 35 + love.math.random() * 75
+  self.particles:panel(e.x, e.y,
+    math.cos(a) * sp, math.sin(a) * sp - 10,
+    points, colors.body, 1.3 + love.math.random() * 0.4,
+    v.angle + (love.math.random() - 0.5) * 0.8,
+    0.85 + love.math.random() * 0.25)
+end
+
 function NetMatch:spawnDamageDebris(e)
   if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
   local part = e.part or "engine"
   local v = self.visuals[e.victim]
   local hp = v and v.parts and v.parts[part] or 60
 
-  -- A couple of chips on every hit.
+  -- A couple of fine metal streaks on every hit.
   self:throwDebris(e, part, 2, 35, 90, 0.7, 1.7)
+  self.particles:cloudWisp(e.x, e.y,
+    (love.math.random() - 0.5) * 24, (love.math.random() - 0.5) * 24,
+    3 + love.math.random() * 3, 0.28 + love.math.random() * 0.18,
+    { 0.48, 0.50, 0.47 })
   if part == "guns" then
     self.particles:spark(e.x, e.y, love.math.random() * math.pi * 2, 90, 0.12,
       { 1, 0.78, 0.38 })
@@ -291,9 +319,16 @@ function NetMatch:spawnDamageDebris(e)
   if band < prev then
     seen[part] = band
     if band > 0 then
-      self:throwDebris(e, part, 8, 55, 165, 1.4, 4.2)
-      self.particles:smoke(e.x, e.y, (love.math.random() - 0.5) * 20, -15,
-        4, 0.55, { 0.55, 0.55, 0.52 })
+      self:spawnPartPanel(e, part)
+      self:throwDebris(e, part, 3, 55, 165, 1.1, 2.6)
+      self.particles:cloudWisp(e.x, e.y,
+        (love.math.random() - 0.5) * 34, -10 - love.math.random() * 22,
+        6 + love.math.random() * 6, 0.55 + love.math.random() * 0.35,
+        { 0.42, 0.44, 0.41 })
+      self.particles:cloudWisp(e.x, e.y,
+        (love.math.random() - 0.5) * 18, -4 - love.math.random() * 14,
+        4 + love.math.random() * 4, 0.35 + love.math.random() * 0.25,
+        { 0.78, 0.80, 0.77 })
     end
   elseif band > prev then
     seen[part] = band
@@ -302,8 +337,17 @@ end
 
 function NetMatch:spawnKillDebris(e)
   if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
-  self:throwDebris(e, "wing", 8, 70, 190, 1.5, 4.5)
-  self:throwDebris(e, "engine", 6, 55, 150, 1.2, 3.5)
+  self:spawnPartPanel(e, "wing")
+  self:spawnPartPanel(e, "tail")
+  self:spawnPartPanel(e, "guns")
+  self:throwDebris(e, "wing", 4, 70, 190, 1.4, 3.2)
+  self:throwDebris(e, "engine", 3, 55, 150, 1.1, 2.6)
+  for _ = 1, 3 do
+    self.particles:cloudWisp(e.x, e.y,
+      (love.math.random() - 0.5) * 60, -20 - love.math.random() * 35,
+      6 + love.math.random() * 7, 0.6 + love.math.random() * 0.5,
+      { 0.32, 0.34, 0.32 })
+  end
 end
 
 function NetMatch:processEvents(events)
@@ -353,6 +397,7 @@ function NetMatch:processEvents(events)
       if e.owner == self.selfId then
         self.hitMarker = 0.18
         self.hitX, self.hitY = e.x, e.y
+        self.shake = math.max(self.shake, 0.9)
         local removed = false
         if e.bulletId then
           for i = #self.localBullets, 1, -1 do
@@ -704,6 +749,24 @@ function NetMatch:update(dt)
     end
   end
 
+  if self.mode == "demo" and self.localPlane and self.localPlane.alive then
+    self.dmgSmokeTimer = (self.dmgSmokeTimer or 0) - dt
+    local p = self.localPlane
+    local worst = math.min(p.parts.engine or 60, p.parts.wing or 60, p.parts.tail or 60)
+    if worst < 35 and self.dmgSmokeTimer <= 0 then
+      self.dmgSmokeTimer = 0.09 + worst / 400
+      local dir = math.atan2(p.vy, p.vx)
+      local bx, by = -math.cos(dir), -math.sin(dir)
+      self.particles:cloudWisp(
+        p.x + bx * (8 + love.math.random() * 10) + (love.math.random() - 0.5) * 8,
+        p.y + by * (8 + love.math.random() * 10) + (love.math.random() - 0.5) * 8,
+        bx * 14 + (love.math.random() - 0.5) * 18,
+        by * 14 - 8 + (love.math.random() - 0.5) * 18,
+        3 + love.math.random() * 5, 0.45 + love.math.random() * 0.35,
+        { 0.30 + worst / 300, 0.31 + worst / 320, 0.30 + worst / 340 })
+    end
+  end
+
   local mx, my = View.mouse()
   self.hover = nil
   if self.leavePrompt then
@@ -985,6 +1048,7 @@ function NetMatch:drawWorld()
   self.cloudFx:drawWake()
   self.particles:drawCloud()
   self.particles:drawDebris()
+  self.particles:drawPanels()
 
   if playerHidden and self.localPlane then
     local ghostColors = (self.teamMode and self.localTeam == 2)

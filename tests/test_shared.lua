@@ -793,4 +793,20 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "detached aircraft panels fall and fade",
+  fn = function()
+    local Particles = require("src.game.particles")
+    local PlaneArt = require("src.game.planeart")
+    local art = PlaneArt.getArt("ik3")
+    local p = Particles.new(10)
+    p:panel(100, 100, 30, -20, art.wing, { 0.36, 0.42, 0.25 }, 1.0, 0, 1)
+    local y = p.items[1].y
+    for _ = 1, 12 do p:update(0.016) end
+    assert(p.items[1] and p.items[1].kind == "panel")
+    assert(p.items[1].y > y, "panel did not fall")
+    p:drawPanels()
+  end,
+}
+
 return cases
