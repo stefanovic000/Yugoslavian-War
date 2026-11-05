@@ -135,6 +135,7 @@ function Multiplayer:handleMessage(msg)
   elseif msg.type == "match_cancelled" then
     self.inMatch = false
     self.client.matchActive = false
+    if msg.room then self.roomState = msg.room end
     self.message = msg.reason or "MATCH ENDED"
     self.phase = "lobby"
   elseif msg.type == "kicked" then

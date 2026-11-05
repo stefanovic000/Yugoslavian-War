@@ -283,7 +283,7 @@ function Match:finishRound(winner)
     self.mvp = mvp
 
     self.phase = "match_end"
-    self.endTime = C.ROUND_BREAK
+    self.endTime = C.MATCH_END_TIME
     self.prepTime = 0
     self.events[#self.events + 1] = {
       type = "match_end", champion = self.champion, matchDraw = draw,

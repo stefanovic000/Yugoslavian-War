@@ -541,7 +541,7 @@ function NetMatch:processEvents(events)
       self.mode = e.mode or self.mode
       self.teamMode = e.teamMode == true
       self.phase = "match_end"
-      self.timer = 3
+      self.timer = C.MATCH_END_TIME
       self.highlight = self.bestReplay
       self.replayClock = 0
       self:prepareHighlight()
@@ -579,10 +579,10 @@ function NetMatch:recordReplayFrame(msg)
       owner = e.owner, victim = e.victim,
     }
   end
-  while #self.replayEvents > 1 and self.uiTime - self.replayEvents[1].t > 4 do
+  while #self.replayEvents > 1 and self.uiTime - self.replayEvents[1].t > 6 do
     table.remove(self.replayEvents, 1)
   end
-  while #self.replayBuffer > 1 and self.uiTime - self.replayBuffer[1].t > 4 do
+  while #self.replayBuffer > 1 and self.uiTime - self.replayBuffer[1].t > 6 do
     table.remove(self.replayBuffer, 1)
   end
 end
@@ -637,7 +637,7 @@ function NetMatch:drawHighlight(x, y, w, h)
     return
   end
 
-  local progress = math.min(0.999, (self.replayClock or 0) / 2.6)
+  local progress = math.min(0.999, (self.replayClock or 0) / C.MATCH_END_TIME)
   local pos = 1 + progress * (#frames - 1)
   local i = math.max(1, math.min(#frames - 1, math.floor(pos)))
   local alpha = pos - i

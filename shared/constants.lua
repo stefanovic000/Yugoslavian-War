@@ -32,6 +32,7 @@ local C = {
   ROUNDS = 6,
   ROUND_KILLS = 5,
   ROUND_BREAK = 3,
+  MATCH_END_TIME = 5,
   PREP_TIME = 10,
 
   PLANE = {
