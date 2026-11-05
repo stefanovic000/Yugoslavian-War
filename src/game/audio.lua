@@ -36,6 +36,11 @@ function Audio.init()
   if Audio.initialized then return end
   Audio.initialized = true
   local ok, err = pcall(function()
+    -- OpenAL defaults vary between devices; make the listener explicit so
+    -- remote engine sources actually pan left/right instead of collapsing to
+    -- the centre on some Windows setups.
+    pcall(love.audio.setPosition, 0, 0, 0)
+    pcall(love.audio.setOrientation, 0, 0, -1, 0, 1, 0)
     local random = love.math.random
 
     Audio.sources.shot = build(0.055, function(t, d)
@@ -146,7 +151,8 @@ function Audio.setEngine(id, dx, dy, throttle, active, occluded)
   if occluded then vol = vol * 0.55 end
   e.src:setVolume(clamp(vol * gain(), 0, 1))
   e.src:setPitch(0.70 + clamp(throttle or 0.6, 0, 1) * 0.50)
-  e.src:setPosition(clamp(dx / 320, -1, 1), 0, -1)
+  -- A wider normalized x makes the stereo cue obvious even on small speakers.
+  e.src:setPosition(clamp(dx / 120, -1, 1), 0, -1)
 end
 
 -- Approximate attenuation for world-space combat events.
