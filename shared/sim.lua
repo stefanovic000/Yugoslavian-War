@@ -157,7 +157,7 @@ function Sim:addSmokeCloud(x, y, scale)
   scale = scale or 1
   local id = self.nextSmokeId
   self.nextSmokeId = self.nextSmokeId + 1
-  local r = 52 * scale
+  local r = 60 * scale
   local variant = self.rng:int(1, 3)
   local cloud = {
     id = id,
