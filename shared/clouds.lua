@@ -21,9 +21,9 @@ function Clouds.new(seed, count, opts)
   -- Demo fields use several wider, shallower banks spread across the arena.
   local clustered = opts.cluster ~= false
   local horizontal = clustered and count >= C.CLOUDS.demoCount
-  local bankCount = horizontal and math.max(2, math.ceil(count / 5)) or 1
-  local clusterCount = clustered and (horizontal
-    and math.min(count, bankCount * 4) or math.min(4, count)) or 0
+  local bankCount = horizontal and 6 or 1
+  local clusterCount = clustered and (horizontal and count or math.min(4, count)) or 0
+  local perBank = horizontal and math.max(3, math.ceil(count / bankCount)) or 4
 
   local banks = {}
   for g = 1, bankCount do
@@ -44,7 +44,8 @@ function Clouds.new(seed, count, opts)
   for i = 1, count do
     local x, y, r, speed, cluster
     if i <= clusterCount then
-      local group = horizontal and (math.floor((i - 1) / 4) + 1) or 1
+      local group = horizontal and (math.floor((i - 1) / perBank) + 1) or 1
+      if group > bankCount then group = bankCount end
       local bank = banks[group]
       local spreadX = horizontal and 72 or 52
       local spreadY = horizontal and 18 or 34

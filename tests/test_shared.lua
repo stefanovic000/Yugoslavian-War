@@ -685,10 +685,10 @@ cases[#cases + 1] = {
     local count = 0
     for _, g in pairs(groups) do
       count = count + 1
-      assert(g.n >= 3, "demo cloud bank too small")
+      assert(g.n >= 3 and g.n <= 6, "demo cloud bank width outside 3-6")
       assert(g.maxY - g.minY <= 40, "demo cloud bank is not shallow")
     end
-    assert(count >= 2, "demo clouds need multiple horizontal banks")
+    assert(count == 6, "demo clouds need six banks")
   end,
 }
 
