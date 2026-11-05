@@ -460,7 +460,9 @@ function NetMatch:processEvents(events)
         self.partFlash[e.part] = 0.30
       end
       self:spawnDamageDebris(e)
-      if e.owner == self.selfId then self:noteHighlightHit(e) end
+      if e.owner == self.selfId or tostring(e.owner) == tostring(self.selfId) then
+        self:noteHighlightHit(e)
+      end
     elseif e.type == "kill" then
       Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
@@ -539,6 +541,9 @@ function NetMatch:processEvents(events)
       self.teamMode = e.teamMode == true
       self.phase = "match_end"
       self.timer = 3
+      if #self.replayBuffer == 0 and self.snapshot then
+        self:recordReplayFrame(self.snapshot)
+      end
       self.highlight = self.bestReplay
       if (not self.highlight or #self.highlight == 0) and #self.replayBuffer > 0 then
         self.highlight = {}

@@ -845,4 +845,21 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "match highlight recorder keeps a hit window",
+  fn = function()
+    local N = require("src.scenes.netmatch")
+    local s = setmetatable({
+      uiTime = 0, replayBuffer = {}, replayHits = {},
+      bestReplay = nil, bestReplayScore = 0, clouds = { list = {} },
+    }, { __index = N })
+    for i = 1, 30 do
+      s.uiTime = i * 0.05
+      s:recordReplayFrame({ planes = { { id = 1, x = 100, y = 100, a = 0, alive = true, team = 1 } }, bullets = {} })
+    end
+    s:noteHighlightHit({ damage = 12 })
+    assert(s.bestReplay and #s.bestReplay > 0, "no best replay captured")
+  end,
+}
+
 return cases
