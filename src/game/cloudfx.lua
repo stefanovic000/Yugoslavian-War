@@ -20,8 +20,9 @@ function CloudFx.new()
   }, CloudFx)
 end
 
-local function addPuff(particles, x, y, vx, vy, size, life)
-  particles:cloudWisp(x, y, vx, vy, size, life, { 0.91, 0.94, 0.93 })
+local function addPuff(particles, x, y, vx, vy, size, life, color)
+  particles:cloudWisp(x, y, vx, vy, size, life,
+    color or { 0.91, 0.94, 0.93 })
 end
 
 function CloudFx:update(dt, plane, clouds, particles, enabled)
@@ -46,6 +47,10 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
   local dir = math.atan2(plane.vy, plane.vx)
   local backX, backY = -math.cos(dir), -math.sin(dir)
   local sideX, sideY = -math.sin(dir), math.cos(dir)
+  local tint = cloud and (cloud.smoke and { 0.34, 0.32, 0.30 } or { 0.91, 0.94, 0.93 })
+    or self.tint or { 0.91, 0.94, 0.93 }
+  self.tint = tint
+  self.wake:setTint(tint)
   self.wake:update(dt, plane, inside, speed, dir)
 
   if inside then
@@ -69,7 +74,7 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
         plane.y + math.sin(dir) * 7 + sideY * s * 10,
         sideX * (i - 2.5) * 9 - backX * 5,
         sideY * (i - 2.5) * 9 - backY * 5,
-        2.5 + i * 0.8, 0.30 + i * 0.04)
+        2.5 + i * 0.8, 0.30 + i * 0.04, tint)
     end
     self.emitTimer = 0.04
   end
@@ -90,7 +95,7 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
         p.y + backY * along + sideY * side * 14,
         sideX * side * (18 + love.math.random() * 26) - (p.vx or 0) * 0.06,
         sideY * side * (18 + love.math.random() * 26) - (p.vy or 0) * 0.06,
-        4.5 + love.math.random() * 7.5, 0.55 + love.math.random() * 0.55)
+        4.5 + love.math.random() * 7.5, 0.55 + love.math.random() * 0.55, tint)
     end
     self.cooldown = 0.24
   end
@@ -107,7 +112,7 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
         p.y + backY * (4 + love.math.random() * 10) + sideY * side * 8,
         sideX * side * (8 + love.math.random() * 20) - backX * 4,
         sideY * side * (8 + love.math.random() * 20) - backY * 4,
-        2.5 + love.math.random() * 4.5, 0.38 + love.math.random() * 0.38)
+        2.5 + love.math.random() * 4.5, 0.38 + love.math.random() * 0.38, tint)
     end
   else
     self.emitTimer = 0

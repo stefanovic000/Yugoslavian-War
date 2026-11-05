@@ -152,6 +152,18 @@ function Particles:panel(x, y, vx, vy, points, color, life, angle, scale)
   self:add(p)
 end
 
+function Particles:fireball(x, y, scale)
+  scale = scale or 1
+  local p = self:acquire()
+  p.kind = "fire"
+  p.x, p.y, p.vx, p.vy = x, y, 0, 0
+  p.size, p.life, p.maxLife = 17 * scale, 0.52, 0.52
+  p.color = nowColor(1, 0.42, 0.12)
+  p.grow = 28 * scale
+  p.drag = 0
+  self:add(p)
+end
+
 function Particles:update(dt)
   local items = self.items
   local i = 1
@@ -212,6 +224,8 @@ function Particles:draw()
       -- Drawn in the debris pass after clouds.
     elseif p.kind == "panel" then
       -- Drawn in the debris pass after clouds.
+    elseif p.kind == "fire" then
+      -- Drawn above clouds by the fire pass.
     end
   end
   love.graphics.pop()
@@ -294,6 +308,24 @@ function Particles:drawPanels()
       love.graphics.setColor(1, 1, 1, 0.15 * a)
       love.graphics.line(p.points[1], p.points[2], p.points[3], p.points[4])
       love.graphics.pop()
+    end
+  end
+  love.graphics.pop()
+end
+
+function Particles:drawFire()
+  local img = self:cloudImage()
+  love.graphics.push("all")
+  for _, p in ipairs(self.items) do
+    if p.kind == "fire" then
+      local t = p.life / p.maxLife
+      local a = math.min(1, t * 1.6)
+      love.graphics.setColor(1, 0.34, 0.08, 0.28 * a)
+      love.graphics.draw(img, p.x, p.y, 0, p.size / 22, p.size / 22, 32, 32)
+      love.graphics.setColor(1, 0.72, 0.24, 0.34 * a)
+      love.graphics.draw(img, p.x, p.y, 0, p.size / 30, p.size / 30, 32, 32)
+      love.graphics.setColor(1, 0.95, 0.72, 0.22 * a)
+      love.graphics.draw(img, p.x, p.y, 0, p.size / 44, p.size / 44, 32, 32)
     end
   end
   love.graphics.pop()

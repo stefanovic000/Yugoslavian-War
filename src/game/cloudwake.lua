@@ -29,7 +29,12 @@ function CloudWake.new()
     points = {},
     emit = 0,
     time = 0,
+    tint = { 1, 1, 1 },
   }, CloudWake)
+end
+
+function CloudWake:setTint(color)
+  if color then self.tint = color end
 end
 
 function CloudWake:clear()
@@ -58,7 +63,7 @@ function CloudWake:update(dt, plane, inside, speed, dir)
   end
 end
 
-local function addStrip(mesh, points, widthScale, alphaScale, time)
+local function addStrip(mesh, points, widthScale, alphaScale, time, tint)
   local verts = {}
   local n = #points
   for i = 1, n do
@@ -71,11 +76,11 @@ local function addStrip(mesh, points, widthScale, alphaScale, time)
     local w = p.width * widthScale * (0.72 + 0.28 * fade)
     verts[#verts + 1] = {
       p.x + nx * (w + wobble), p.y + ny * (w + wobble), 0, 0.5,
-      1, 1, 1, fade * alphaScale,
+      tint[1], tint[2], tint[3], fade * alphaScale,
     }
     verts[#verts + 1] = {
       p.x - nx * (w - wobble), p.y - ny * (w - wobble), 1, 0.5,
-      1, 1, 1, fade * alphaScale,
+      tint[1], tint[2], tint[3], fade * alphaScale,
     }
   end
   mesh:setVertices(verts)
@@ -100,15 +105,15 @@ function CloudWake:draw()
   end
   love.graphics.push("all")
   love.graphics.setBlendMode("alpha")
-  local n = addStrip(self.broadMesh, points, 1.9, 0.08, self.time)
+  local n = addStrip(self.broadMesh, points, 1.9, 0.08, self.time, self.tint)
   self.broadMesh:setDrawRange(1, n)
   love.graphics.setColor(0.94, 0.96, 0.95, 1)
   love.graphics.draw(self.broadMesh)
-  n = addStrip(self.mesh, points, 1.0, 0.22, self.time)
+  n = addStrip(self.mesh, points, 1.0, 0.22, self.time, self.tint)
   self.mesh:setDrawRange(1, n)
   love.graphics.setColor(0.94, 0.96, 0.95, 1)
   love.graphics.draw(self.mesh)
-  n = addStrip(self.innerMesh, points, 0.52, 0.24, self.time)
+  n = addStrip(self.innerMesh, points, 0.52, 0.24, self.time, self.tint)
   self.innerMesh:setDrawRange(1, n)
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(self.innerMesh)

@@ -383,6 +383,7 @@ function Match:stepRound(dt)
     if e.type == "hit" and e.owner and self.scores[e.owner] then
       self.scores[e.owner].damage = (self.scores[e.owner].damage or 0) + (e.damage or 0)
     elseif e.type == "kill" then
+      self.sim:addSmokeCloud(e.x, math.min(e.y, C.WORLD.groundY - 70), 1)
       if e.killer and self.scores[e.killer] then
         self.scores[e.killer].kills = self.scores[e.killer].kills + 1
         self.scores[e.killer].roundKills = self.scores[e.killer].roundKills + 1
@@ -391,6 +392,8 @@ function Match:stepRound(dt)
           self.teamKills[team] = (self.teamKills[team] or 0) + 1
         end
       end
+    elseif e.type == "crash" then
+      self.sim:addSmokeCloud(e.x, math.min(e.y, C.WORLD.groundY - 70), 1)
     end
   end
 
@@ -513,7 +516,11 @@ function Match:buildSnapshot()
 
   local clouds = {}
   for _, c in ipairs(self.sim.clouds.list) do
-    clouds[#clouds + 1] = { x = r2(c.x), y = r2(c.y) }
+    clouds[#clouds + 1] = {
+      id = c.id, x = r2(c.x), y = r2(c.y), r = r2(c.r),
+      variant = c.variant, alpha = c.alpha, speed = c.speed,
+      smoke = c.smoke == true, life = c.life, maxLife = c.maxLife,
+    }
   end
 
   local scores = {}

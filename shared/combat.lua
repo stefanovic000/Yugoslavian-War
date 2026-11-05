@@ -26,6 +26,25 @@ local SHAPES = {
 
 Combat.SHAPES = SHAPES
 
+-- Lost parts change the physical target: a destroyed wingtip/fin and wrecked
+-- guns stop presenting a hitbox even though the aircraft can still fly.
+function Combat.shapesFor(plane)
+  local parts = plane.parts or {}
+  local wing = parts.wing or 60
+  local tail = parts.tail or 60
+  local guns = parts.guns or 60
+  if wing > 22 and tail > 22 and guns > 18 then return SHAPES end
+  local out = {}
+  for _, shape in ipairs(SHAPES) do
+    local keep = true
+    if shape.part == "wing" and wing <= 22 and shape.x <= -6 then keep = false end
+    if shape.part == "tail" and tail <= 22 and shape.y < 0 then keep = false end
+    if shape.part == "guns" and guns <= 18 then keep = false end
+    if keep then out[#out + 1] = shape end
+  end
+  return out
+end
+
 -- The sprite is mirrored horizontally when flying left, not rotated upside
 -- down. Hitboxes and effects must use the same transform or left-facing
 -- planes get a vertically flipped wing/fin hitbox.
@@ -82,7 +101,7 @@ function Combat.bulletHitsPlaneAt(bullet, plane, cx, cy, angle, worldW, worldH)
     for _, mirror in ipairs(modes) do
       local lx1, ly1 = worldToLocalMode(angle, dx1, dy1, mirror)
       local lx2, ly2 = worldToLocalMode(angle, dx2, dy2, mirror)
-      for _, shape in ipairs(SHAPES) do
+      for _, shape in ipairs(Combat.shapesFor(plane)) do
         if segmentHitsCircle(lx1, ly1, lx2, ly2, shape.x, shape.y,
           shape.r + (bullet.radius or 0)) then
           return shape.part, bullet.x, bullet.y

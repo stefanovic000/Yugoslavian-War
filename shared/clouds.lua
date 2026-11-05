@@ -74,6 +74,7 @@ function Clouds.new(seed, count, opts)
       bigCloud = big
     end
     local cloud = {
+      id = i,
       x = x,
       y = y,
       r = r,
@@ -92,15 +93,27 @@ function Clouds.new(seed, count, opts)
 end
 
 function Clouds.update(clouds, dt)
-  for _, cloud in ipairs(clouds.list) do
-    cloud.x = cloud.x + cloud.speed * dt
-    local margin = cloud.r or 40
-    if cloud.x < -margin then
-      cloud.x = -margin
-      cloud.speed = math.abs(cloud.speed)
-    elseif cloud.x > clouds.w + margin then
-      cloud.x = clouds.w + margin
-      cloud.speed = -math.abs(cloud.speed)
+  for i = #clouds.list, 1, -1 do
+    local cloud = clouds.list[i]
+    if cloud.smoke then
+      cloud.life = (cloud.life or 0) - dt
+      cloud.x = cloud.x + (cloud.speed or 0) * dt
+      if cloud.life <= 0 then
+        table.remove(clouds.list, i)
+      else
+        local fade = math.min(1, cloud.life / 0.6)
+        cloud.alpha = (cloud.baseAlpha or 0.9) * fade
+      end
+    else
+      cloud.x = cloud.x + cloud.speed * dt
+      local margin = cloud.r or 40
+      if cloud.x < -margin then
+        cloud.x = -margin
+        cloud.speed = math.abs(cloud.speed)
+      elseif cloud.x > clouds.w + margin then
+        cloud.x = clouds.w + margin
+        cloud.speed = -math.abs(cloud.speed)
+      end
     end
   end
 end

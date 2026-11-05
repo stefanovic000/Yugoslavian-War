@@ -5,6 +5,7 @@
 local App = require("src.app")
 local C = require("shared.constants")
 local Clouds = require("shared.clouds")
+local Shapes = require("shared.cloud_shapes")
 local Flight = require("shared.flight")
 local M = require("shared.mathx")
 local Settings = require("src.game.settings")
@@ -275,24 +276,30 @@ end
 function NetMatch:spawnPartPanel(e, part)
   local v = self.visuals[e.victim]
   if not v then return end
-  local art = PlaneArt.getArt(v.planeType or "ik3")
-  local points
-  if part == "wing" then points = art.wing
-  elseif part == "tail" then points = art.fin
-  elseif part == "guns" then points = art.tailplane
-  else points = art.nose end
-  if not points then return end
-  local friendly = self.teamMode and v.team == self.localTeam
-  local colors = (friendly or (not self.teamMode and e.victim == self.selfId))
-    and Sprites.TEAM.player or Sprites.TEAM.enemy
-  local dir = self:debrisDirection(e)
-  local a = dir + (love.math.random() - 0.5) * 1.2
-  local sp = 35 + love.math.random() * 75
-  self.particles:panel(e.x, e.y,
-    math.cos(a) * sp, math.sin(a) * sp - 10,
-    points, colors.body, 1.3 + love.math.random() * 0.4,
-    v.angle + (love.math.random() - 0.5) * 0.8,
-    0.85 + love.math.random() * 0.25)
+  local points, color
+  if part == "wing" then
+    points = { -1, 0, -8, 3, -3, 5 }
+    color = { 0.46, 0.48, 0.43 }
+  elseif part == "tail" then
+    points = { -1, 0, -7, -5, -3, -1 }
+    color = { 0.34, 0.36, 0.31 }
+  elseif part == "guns" then
+    points = { 0, 0, 4, -1, 2, 2 }
+    color = { 0.54, 0.55, 0.52 }
+  else
+    points = { 0, 0, 6, -2, 3, 3 }
+    color = { 0.27, 0.25, 0.21 }
+  end
+  for _ = 1, 2 do
+    local dir = self:debrisDirection(e)
+    local a = dir + (love.math.random() - 0.5) * 1.5
+    local sp = 35 + love.math.random() * 80
+    self.particles:panel(e.x, e.y,
+      math.cos(a) * sp, math.sin(a) * sp - 10,
+      points, color, 1.2 + love.math.random() * 0.5,
+      v.angle + (love.math.random() - 0.5) * 1.2,
+      0.7 + love.math.random() * 0.5)
+  end
 end
 
 function NetMatch:spawnDamageDebris(e)
@@ -427,6 +434,7 @@ function NetMatch:processEvents(events)
       Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
       self.particles:explosion(e.x, e.y, color, e.victim == self.selfId and 1.5 or 1)
+      self.particles:fireball(e.x, e.y, e.victim == self.selfId and 1.25 or 1)
       self:spawnKillDebris(e)
       if e.victim == self.selfId then
         self.shake = math.max(self.shake, 9)
@@ -458,6 +466,7 @@ function NetMatch:processEvents(events)
     elseif e.type == "crash" then
       Audio.play("explosion", 0.6)
       self.particles:explosion(e.x, e.y, { 0.95, 0.58, 0.25 }, e.victim == self.selfId and 1.4 or 1)
+      self.particles:fireball(e.x, e.y, 0.85)
       if e.victim == self.selfId then
         self.notice = "CRASHED"
         self.noticeTimer = 1.4
@@ -503,6 +512,37 @@ function NetMatch:processEvents(events)
   end
 end
 
+function NetMatch:syncClouds(data)
+  if not data then return end
+  local existing = {}
+  for _, c in ipairs(self.clouds.list) do existing[c.id] = c end
+  local list = {}
+  for _, d in ipairs(data) do
+    local c = existing[d.id]
+    if c then
+      if math.abs(d.x - c.x) > 1.5 then c.x = d.x end
+      if math.abs(d.y - c.y) > 1.5 then c.y = d.y end
+      c.r, c.variant = d.r or c.r, d.variant or c.variant
+      c.alpha, c.speed = d.alpha or c.alpha, d.speed or c.speed
+      c.smoke = d.smoke == true
+      c.life, c.maxLife = d.life, d.maxLife
+      if c.smoke then c.tint = { 0.30, 0.27, 0.24 } end
+    else
+      c = {
+        id = d.id, x = d.x, y = d.y, r = d.r or 40,
+        variant = d.variant or 1, alpha = d.alpha or 0.88,
+        speed = d.speed or 0, smoke = d.smoke == true,
+        life = d.life, maxLife = d.maxLife,
+        baseAlpha = d.alpha or 0.88,
+        tint = d.smoke and { 0.30, 0.27, 0.24 } or nil,
+        puffs = Shapes.puffs(d.variant or 1, d.r or 40),
+      }
+    end
+    list[#list + 1] = c
+  end
+  self.clouds.list = list
+end
+
 function NetMatch:onSnapshot(msg)
   self.snapshot = msg
   self.snapRecvAt = love.timer.getTime()
@@ -534,14 +574,7 @@ function NetMatch:onSnapshot(msg)
   -- Cloud positions are server-authoritative: a client joining late, lagging,
   -- or drifting between frames must not use a different cloud field for
   -- visibility, otherwise it can stay invisible after leaving a cloud.
-  for i, c in ipairs(msg.clouds or {}) do
-    local localCloud = self.clouds and self.clouds.list[i]
-    if localCloud then
-      -- Ignore sub-pixel corrections; they make the cloud-shadow mask shimmer.
-      if math.abs(c.x - localCloud.x) > 1.5 then localCloud.x = c.x end
-      if math.abs(c.y - localCloud.y) > 1.5 then localCloud.y = c.y end
-    end
-  end
+  self:syncClouds(msg.clouds)
 
   local own = nil
   local seen = {}
@@ -1046,6 +1079,7 @@ function NetMatch:drawWorld()
     Sprites.drawCloudCopies(cloud, 1)
   end
   self.cloudFx:drawWake()
+  self.particles:drawFire()
   self.particles:drawCloud()
   self.particles:drawDebris()
   self.particles:drawPanels()

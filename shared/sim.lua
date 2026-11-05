@@ -7,6 +7,7 @@ local Rng = require("shared.rng")
 local Flight = require("shared.flight")
 local Combat = require("shared.combat")
 local Clouds = require("shared.clouds")
+local Shapes = require("shared.cloud_shapes")
 
 local Sim = {}
 Sim.__index = Sim
@@ -26,6 +27,7 @@ function Sim.new(opts)
     time = 0,
     pickupTimer = 6,
     nextBulletId = 1,
+    nextSmokeId = 1000,
     events = {},
     teamMode = opts.teamMode == true,
     lagByOwner = {},
@@ -149,6 +151,26 @@ function Sim:spawnPickup(x)
   }
   self.pickups[#self.pickups + 1] = pickup
   return pickup
+end
+
+function Sim:addSmokeCloud(x, y, scale)
+  scale = scale or 1
+  local id = self.nextSmokeId
+  self.nextSmokeId = self.nextSmokeId + 1
+  local r = 52 * scale
+  local variant = self.rng:int(1, 3)
+  local cloud = {
+    id = id,
+    x = x, y = y, r = r, speed = self.rng:range(-4, 4),
+    alpha = 0.94, baseAlpha = 0.94,
+    variant = variant,
+    smoke = true,
+    life = 2.6, maxLife = 2.6,
+    tint = { 0.30, 0.27, 0.24 },
+    puffs = Shapes.puffs(variant, r),
+  }
+  table.insert(self.clouds.list, cloud)
+  return cloud
 end
 
 function Sim:step(inputs, dt)

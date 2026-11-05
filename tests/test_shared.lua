@@ -809,4 +809,40 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "lost wing and tail stop presenting hitboxes",
+  fn = function()
+    local Combat = require("shared.combat")
+    local plane = { parts = { wing = 60, tail = 60, guns = 60 } }
+    local full = #Combat.shapesFor(plane)
+    plane.parts.wing = 20
+    local noWing = #Combat.shapesFor(plane)
+    assert(noWing < full, "destroyed wing did not remove a hitbox")
+    plane.parts.tail = 20
+    local noTail = #Combat.shapesFor(plane)
+    assert(noTail < noWing, "destroyed tail did not remove a hitbox")
+    plane.parts.guns = 10
+    assert(#Combat.shapesFor(plane) < noTail, "destroyed guns did not remove a hitbox")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "death smoke hides and blinds for its lifetime",
+  fn = function()
+    local Sim = require("shared.sim")
+    local Clouds = require("shared.clouds")
+    local Vision = require("shared.vision")
+    local sim = Sim.new({ seed = 7 })
+    local before = #sim.clouds.list
+    local smoke = sim:addSmokeCloud(500, 220, 1)
+    assert(#sim.clouds.list == before + 1)
+    assert(Clouds.pointInside(sim.clouds, 500, 220), "smoke has no blocking volume")
+    local viewer = { x = 400, y = 220, angle = 0, alive = true }
+    local target = { x = 620, y = 220, alive = true }
+    assert(not Vision.canSee(viewer, target, sim.clouds), "smoke did not blind")
+    Clouds.update(sim.clouds, smoke.maxLife + 0.1)
+    assert(not Clouds.pointInside(sim.clouds, 500, 220), "smoke outlived its timer")
+  end,
+}
+
 return cases
