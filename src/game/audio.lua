@@ -92,15 +92,20 @@ function Audio.init()
       return (random() * 2 - 1) * env * 0.30
     end)
 
-    Audio.sources.engine = build(1.0, function(t)
-      local trem = 0.82 + 0.18 * math.sin(2 * math.pi * 9 * t)
-      -- Keep a low rumble, but add enough midrange that laptop speakers and
-      -- small headsets can actually reproduce the engine cue.
-      return (math.sin(2 * math.pi * 55 * t) * 0.20
-        + math.sin(2 * math.pi * 110 * t) * 0.20
-        + math.sin(2 * math.pi * 220 * t) * 0.14
-        + math.sin(2 * math.pi * 330 * t) * 0.08
-        + math.sin(2 * math.pi * 440 * t) * 0.04) * trem * 0.24
+    Audio.sources.engine = build(2.0, function(t)
+      -- Radial-engine thump plus prop wash. Avoid a fast tremolo or high
+      -- sustained harmonics: those read as an insect buzz, not an aircraft.
+      local beat = math.max(0, math.sin(2 * math.pi * 36 * t))
+      local thump = (0.52 + 0.48 * beat) * (0.52 + 0.48 * beat)
+      local base = math.sin(2 * math.pi * 52 * t) * 0.40
+        + math.sin(2 * math.pi * 104 * t) * 0.22
+        + math.sin(2 * math.pi * 156 * t) * 0.10
+        + math.sin(2 * math.pi * 208 * t) * 0.04
+      local wash = math.sin(2 * math.pi * 24 * t
+        + 1.7 * math.sin(2 * math.pi * 2 * t)) * 0.07
+      local rough = math.sin(2 * math.pi * 317 * t)
+        * math.sin(2 * math.pi * 127 * t) * 0.035
+      return (base * thump + wash + rough) * 0.29
     end)
     Audio.sources.engine:setLooping(true)
   end)
@@ -154,7 +159,7 @@ function Audio.setEngine(id, dx, dy, throttle, active, occluded)
   local vol = clamp(0.05 + (1 - dist / 700) * 0.28, 0.04, 0.32)
   if occluded then vol = vol * 0.55 end
   e.src:setVolume(clamp(vol * gain(), 0, 1))
-  e.src:setPitch(0.70 + clamp(throttle or 0.6, 0, 1) * 0.50)
+  e.src:setPitch(0.60 + clamp(throttle or 0.6, 0, 1) * 0.45)
   -- A wider normalized x makes the stereo cue obvious even on small speakers.
   e.src:setPosition(clamp(dx / 120, -1, 1), 0, -1)
 end
