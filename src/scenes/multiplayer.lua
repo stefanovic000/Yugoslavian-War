@@ -173,7 +173,8 @@ function Multiplayer:update(dt)
 
   self.client:update(dt)
   if self.client.lobbyRoom then
-    self.roomState = self.client.lobbyRoom
+    local fresh = self.client.lobbyRoom
+    self.roomState = fresh.room or fresh
     self.client.lobbyRoom = nil
     self.phase = "lobby"
     self.inMatch = false
@@ -243,8 +244,10 @@ function Multiplayer:update(dt)
       if UI.hit(mx, my, 188, 116, 264, 24) then self.hover = "mode" end
       if UI.hit(mx, my, 246, 144, 34, 24) then self.hover = "botsMinus" end
       if UI.hit(mx, my, 360, 144, 34, 24) then self.hover = "botsPlus" end
-      if UI.hit(mx, my, 180, 174, 280, 42) then self.hover = "botDifficulty" end
-      if UI.hit(mx, my, 270, 224, 100, 24) then self.hover = "roomClose" end
+      if UI.hit(mx, my, 188, 192, 264, 24) then self.hover = "botDifficulty" end
+      if UI.hit(mx, my, 188, 238, 34, 24) then self.hover = "roundsMinus" end
+      if UI.hit(mx, my, 418, 238, 34, 24) then self.hover = "roundsPlus" end
+      if UI.hit(mx, my, 270, 268, 100, 24) then self.hover = "roomClose" end
       return
     end
     if UI.hit(mx, my, 36, 304, 84, 24) then self.hover = "leave" end
@@ -293,7 +296,7 @@ end
 
 function Multiplayer:myRoomPlayer()
   if not self.roomState then return nil end
-  for _, p in ipairs(self.roomState.players) do
+  for _, p in ipairs(self.roomState.players or {}) do
     if p.id == self.client.selfId then return p end
   end
   return nil
@@ -889,14 +892,14 @@ function Multiplayer:mousepressed(x, y)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 144, 34, 24) then
         local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
         self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1), nil, room.rounds)
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 180, 174, 280, 42) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 192, 264, 24) then
         local level = room.botDifficulty or "veteran"
         level = level == "rookie" and "veteran" or level == "veteran" and "ace" or "rookie"
         self:sendRoomSettings(room.mode, room.bots or 0, level, room.rounds)
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 226, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 238, 34, 24) then
         self:sendRoomSettings(room.mode, room.bots or 0, room.botDifficulty,
           math.max(2, (room.rounds or C.ROUNDS) - 1))
-      elseif room.host == self.client.selfId and UI.hit(mx, my, 418, 226, 34, 24) then
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 418, 238, 34, 24) then
         self:sendRoomSettings(room.mode, room.bots or 0, room.botDifficulty,
           math.min(12, (room.rounds or C.ROUNDS) + 1))
       elseif UI.hit(mx, my, 270, 268, 100, 24) then

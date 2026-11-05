@@ -447,16 +447,17 @@ function Server:cancelMatch(room, reason)
   room.match = nil
   room.status = "lobby"
   for _, id in ipairs(room.players) do room.ready[id] = false end
+  local lobby = self:roomState(room).room
   for _, id in ipairs(room.spectators) do
     local c = self.clients[id]
     if c then
-      self:send(c, { type = "match_cancelled", reason = reason or "Match ended.", room = self:roomState(room) })
+      self:send(c, { type = "match_cancelled", reason = reason or "Match ended.", room = lobby })
     end
   end
   for _, id in ipairs(room.players) do
     local c = self.clients[id]
     if c then
-      self:send(c, { type = "match_cancelled", reason = reason or "Match ended.", room = self:roomState(room) })
+      self:send(c, { type = "match_cancelled", reason = reason or "Match ended.", room = lobby })
     end
   end
   self:broadcastRoom(room)
