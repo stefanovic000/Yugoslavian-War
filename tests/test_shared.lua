@@ -850,7 +850,7 @@ cases[#cases + 1] = {
   fn = function()
     local N = require("src.scenes.netmatch")
     local s = setmetatable({
-      uiTime = 0, replayBuffer = {}, replayHits = {},
+      uiTime = 0, replayBuffer = {}, replayHits = {}, replayEvents = {},
       bestReplay = nil, bestReplayScore = 0, clouds = { list = {} },
     }, { __index = N })
     for i = 1, 30 do

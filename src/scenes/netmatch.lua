@@ -111,6 +111,8 @@ function NetMatch:enter(client, startMsg)
   self.bestReplayScore = 0
   self.replayBuffer = {}
   self.replayHits = {}
+  self.replayEvents = {}
+  self.bestEvents = nil
   self.highlight = nil
   self.replayClock = 0
   self.roomState = nil
@@ -553,17 +555,33 @@ function NetMatch:recordReplayFrame(msg)
     frame.planes[#frame.planes + 1] = {
       id = sp.id, x = sp.x, y = sp.y, a = sp.a, alive = sp.alive,
       team = sp.team, planeType = sp.planeType, hp = sp.hp,
+      maxHp = sp.maxHp, parts = sp.parts and {
+        engine = sp.parts.engine, wing = sp.parts.wing,
+        tail = sp.parts.tail, guns = sp.parts.guns,
+      },
     }
   end
   for _, b in ipairs(msg.bullets or {}) do
     frame.bullets[#frame.bullets + 1] = { x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = b.team }
   end
   for _, c in ipairs(self.clouds.list) do
-    frame.clouds[#frame.clouds + 1] = { x = c.x, y = c.y, r = c.r, smoke = c.smoke }
+    frame.clouds[#frame.clouds + 1] = {
+      x = c.x, y = c.y, r = c.r, smoke = c.smoke,
+      variant = c.variant, alpha = c.alpha, tint = c.tint,
+    }
   end
   local p = self.localPlane
   if p then frame.focusX, frame.focusY = p.x, p.y end
   self.replayBuffer[#self.replayBuffer + 1] = frame
+  for _, e in ipairs(msg.events or {}) do
+    self.replayEvents[#self.replayEvents + 1] = {
+      t = self.uiTime, type = e.type, x = e.x, y = e.y, angle = e.angle,
+      owner = e.owner, victim = e.victim,
+    }
+  end
+  while #self.replayEvents > 1 and self.uiTime - self.replayEvents[1].t > 4 do
+    table.remove(self.replayEvents, 1)
+  end
   while #self.replayBuffer > 1 and self.uiTime - self.replayBuffer[1].t > 4 do
     table.remove(self.replayBuffer, 1)
   end
@@ -583,11 +601,14 @@ function NetMatch:noteHighlightHit(e)
     self.bestPair = { owner = e.owner, victim = e.victim }
     self.bestReplay = {}
     for i, frame in ipairs(self.replayBuffer) do self.bestReplay[i] = frame end
+    self.bestEvents = {}
+    for i, ev in ipairs(self.replayEvents) do self.bestEvents[i] = ev end
   end
 end
 
 function NetMatch:prepareHighlight()
   self.highlightMaxDist = 0
+  self.highlightEvents = self.bestEvents or {}
   if not self.highlight or not self.bestPair then return end
   for _, frame in ipairs(self.highlight) do
     local a, b
@@ -605,56 +626,100 @@ end
 function NetMatch:drawHighlight(x, y, w, h)
   love.graphics.push("all")
   love.graphics.setScissor(x, y, w, h)
-  love.graphics.setColor(0.012, 0.02, 0.025, 1)
-  love.graphics.rectangle("fill", x, y, w, h)
   local frames = self.highlight
   if not frames or #frames == 0 then
+    love.graphics.setColor(0.012, 0.02, 0.025, 1)
+    love.graphics.rectangle("fill", x, y, w, h)
     UI.set(UI.C.cream2)
     UI.small("NO HIGHLIGHT", x, y + h * 0.5 - 4, UI.C.cream2, "center", w)
     love.graphics.setScissor()
     love.graphics.pop()
     return
   end
+
   local progress = math.min(0.999, (self.replayClock or 0) / 2.6)
-  local frame = frames[math.max(1, math.floor(progress * #frames) + 1)]
-  local fx, fy = (self.bestFocus and self.bestFocus.x) or frame.focusX or 500,
-    (self.bestFocus and self.bestFocus.y) or frame.focusY or 220
-  if self.bestPair then
-    local a, b
-    for _, p in ipairs(frame.planes or {}) do
-      if p.id == self.bestPair.owner then a = p end
-      if p.id == self.bestPair.victim then b = p end
-    end
-    if a and b then fx, fy = (a.x + b.x) * 0.5, (a.y + b.y) * 0.5 end
+  local pos = 1 + progress * (#frames - 1)
+  local i = math.max(1, math.min(#frames - 1, math.floor(pos)))
+  local alpha = pos - i
+  local fa, fb = frames[i], frames[i + 1] or frames[i]
+  local replayT = fa.t or 0
+  if fb.t and fa.t then replayT = fa.t + (fb.t - fa.t) * alpha end
+
+  local function findPlane(frame, id)
+    for _, p in ipairs(frame.planes or {}) do if p.id == id then return p end end
   end
+
+  local function interpolated(id)
+    local a, b = findPlane(fa, id), findPlane(fb, id)
+    if not a and not b then return nil end
+    if not a then return b end
+    if not b then return a end
+    return {
+      id = id, x = a.x + (b.x - a.x) * alpha, y = a.y + (b.y - a.y) * alpha,
+      a = a.a + M.angleDiff(a.a, b.a) * alpha,
+      team = b.team or a.team, planeType = b.planeType or a.planeType,
+      hp = b.hp or a.hp, maxHp = b.maxHp or a.maxHp,
+      parts = b.parts or a.parts, alive = b.alive ~= false,
+    }
+  end
+
+  local owner = self.bestPair and interpolated(self.bestPair.owner)
+  local victim = self.bestPair and interpolated(self.bestPair.victim)
+  local fx, fy = owner and victim and ((owner.x + victim.x) * 0.5) or
+    (self.bestFocus and self.bestFocus.x) or 500,
+    owner and victim and ((owner.y + victim.y) * 0.5) or
+    (self.bestFocus and self.bestFocus.y) or 220
   local viewW = math.max(240, (self.highlightMaxDist or 0) + 140)
   local s = w / viewW
-  love.graphics.setColor(0.43, 0.62, 0.72, 1)
-  love.graphics.rectangle("fill", x, y, w, h)
+
+  Sky.draw()
   love.graphics.push()
   love.graphics.translate(x + w * 0.5, y + h * 0.5)
   love.graphics.scale(s, s)
   love.graphics.translate(-fx, -fy)
-  love.graphics.setColor(0.20, 0.24, 0.19, 1)
-  love.graphics.rectangle("fill", -400, C.WORLD.groundY, 1800, 120)
-  for _, c in ipairs(frame.clouds or {}) do
-    love.graphics.setColor(c.smoke and 0.24 or 0.86, c.smoke and 0.22 or 0.88,
-      c.smoke and 0.20 or 0.86, 0.32)
-    love.graphics.circle("fill", c.x, c.y, c.r or 36, 12)
-  end
-  for _, b in ipairs(frame.bullets or {}) do
-    love.graphics.setColor(1, 0.82, 0.35, 0.9)
-    love.graphics.line(b.x, b.y, b.x - (b.vx or 0) * 0.035, b.y - (b.vy or 0) * 0.035)
-  end
-  for _, p in ipairs(frame.planes or {}) do
-    if p.alive then
-      local spec = Aircraft.get(p.planeType)
-      local plane = { x = p.x, y = p.y, angle = p.a, team = p.team,
-        planeType = p.planeType, spec = spec, parts = { engine = 60, wing = 60, tail = 60, guns = 60 } }
-      local colors = (p.team == 1) and Sprites.TEAM.player or Sprites.TEAM.enemy
+  Walls.draw()
+  Ground.draw()
+  CloudShadows.draw({ list = fa.clouds or {}, wind = 0 })
+
+  for _, p in ipairs(fa.planes or {}) do
+    local ip = interpolated(p.id)
+    if ip and ip.alive then
+      local spec = Aircraft.get(ip.planeType)
+      local plane = {
+        x = ip.x, y = ip.y, angle = ip.a, team = ip.team,
+        planeType = ip.planeType, spec = spec, parts = ip.parts,
+        alive = true, invuln = 0, hitFlash = 0,
+      }
+      local colors = (ip.team == 2) and Sprites.TEAM.enemy or Sprites.TEAM.player
       Sprites.drawPlane(plane, self.uiTime, { colors = colors })
     end
   end
+
+  for _, b in ipairs(fa.bullets or {}) do
+    Sprites.drawBullet({ x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = b.team })
+  end
+
+  for _, c in ipairs(fa.clouds or {}) do
+    Sprites.drawCloudCopies({
+      x = c.x, y = c.y, r = c.r, variant = c.variant or 1,
+      alpha = c.alpha or 0.85, tint = c.tint, smoke = c.smoke,
+    }, 1)
+  end
+
+  for _, e in ipairs(self.highlightEvents or {}) do
+    local age = replayT - (e.t or 0)
+    if age >= 0 and age <= 0.35 then
+      local a = 1 - age / 0.35
+      if e.type == "hit" then
+        love.graphics.setColor(1, 0.85, 0.45, a)
+        love.graphics.circle("fill", e.x, e.y, 3 + age * 18, 8)
+      elseif e.type == "kill" then
+        love.graphics.setColor(1, 0.38, 0.10, a * 0.55)
+        love.graphics.circle("fill", e.x, e.y, 10 + age * 90, 12)
+      end
+    end
+  end
+
   love.graphics.pop()
   love.graphics.setScissor()
   love.graphics.pop()
@@ -1195,7 +1260,7 @@ function NetMatch:drawWorld()
         local plane = {
           x = v.x, y = v.y, angle = v.angle, throttle = 0.6, alive = true,
           invuln = 0, hitFlash = 0, parts = v.parts or {},
-          team = v.team or 2,
+          team = v.team or 2, planeType = v.planeType, spec = v.spec,
         }
         local friendly = self.teamMode and v.team == self.localTeam
         local colors
