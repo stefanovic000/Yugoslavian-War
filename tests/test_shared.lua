@@ -741,4 +741,29 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "cloud wake is left behind the aircraft",
+  fn = function()
+    local Clouds = require("shared.clouds")
+    local CloudFx = require("src.game.cloudfx")
+    local Particles = require("src.game.particles")
+    local clouds = Clouds.new(93, C.CLOUDS.demoCount)
+    local cloud = clouds.list[1]
+    local particles = Particles.new(200)
+    local fx = CloudFx.new()
+    local plane = { x = cloud.x, y = cloud.y, vx = 150, vy = 0, alive = true }
+    for _ = 1, 4 do fx:update(0.04, plane, clouds, particles, true) end
+    plane.x = cloud.x + 140
+    fx:update(0.04, plane, clouds, particles, true)
+    local checked = 0
+    for _, p in ipairs(particles.items) do
+      if p.kind == "cloud" then
+        checked = checked + 1
+        assert(p.x <= plane.x, "cloud puff spawned ahead of the aircraft")
+      end
+    end
+    assert(checked > 0, "no wake puffs")
+  end,
+}
+
 return cases

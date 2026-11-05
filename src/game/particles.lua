@@ -115,6 +115,9 @@ function Particles:cloudWisp(x, y, vx, vy, size, life, color)
   p.color = color or nowColor(0.90, 0.93, 0.92)
   p.grow = size * 0.9
   p.drag = 1.8
+  p.rot = love.math.random() * math.pi * 2
+  p.spin = (love.math.random() - 0.5) * 1.8
+  p.curl = (love.math.random() - 0.5) * 2.4
   self:add(p)
 end
 
@@ -132,6 +135,11 @@ function Particles:update(dt)
       if p.drag and p.drag > 0 then
         local k = math.max(0, 1 - p.drag * dt)
         p.vx, p.vy = p.vx * k, p.vy * k
+      end
+      if p.kind == "cloud" and p.curl then
+        local c, s = math.cos(p.curl * dt), math.sin(p.curl * dt)
+        p.vx, p.vy = p.vx * c - p.vy * s, p.vx * s + p.vy * c
+        p.rot = (p.rot or 0) + (p.spin or 0) * dt
       end
       p.x = p.x + p.vx * dt
       p.y = p.y + p.vy * dt
@@ -171,10 +179,17 @@ function Particles:drawCloud()
   for _, p in ipairs(self.items) do
     if p.kind == "cloud" then
       local t = p.life / p.maxLife
-      love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.26 * t)
-      love.graphics.circle("fill", p.x, p.y, p.size, 10)
-      love.graphics.setColor(1, 1, 1, 0.14 * t)
-      love.graphics.circle("fill", p.x, p.y, p.size * 0.55, 8)
+      local size = p.size
+      love.graphics.push()
+      love.graphics.translate(p.x, p.y)
+      love.graphics.rotate(p.rot or 0)
+      love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.22 * t)
+      love.graphics.ellipse("fill", 0, 0, size * 1.18, size * 0.82, 10)
+      love.graphics.setColor(1, 1, 1, 0.13 * t)
+      love.graphics.ellipse("fill", -size * 0.16, -size * 0.10, size * 0.72, size * 0.52, 8)
+      love.graphics.setColor(0.82, 0.86, 0.87, 0.10 * t)
+      love.graphics.ellipse("fill", size * 0.20, size * 0.08, size * 0.55, size * 0.40, 8)
+      love.graphics.pop()
     end
   end
   love.graphics.pop()
