@@ -577,7 +577,7 @@ function NetMatch:noteHighlightHit(e)
   local score = 0
   for _, h in ipairs(self.replayHits) do score = score + h.damage end
   score = score + #self.replayHits * 5
-  if score > self.bestReplayScore and #self.replayBuffer >= 12 then
+  if score > self.bestReplayScore and #self.replayBuffer >= 1 then
     self.bestReplayScore = score
     self.bestReplay = {}
     for i, frame in ipairs(self.replayBuffer) do self.bestReplay[i] = frame end
