@@ -237,6 +237,6 @@ docs/                      screenshots and debugging guide
 
 ## Status
 
-Version **0.3.2**. The game is in active playtesting: flight feel, network
+Version **0.3.3**. The game is in active playtesting: flight feel, network
 visibility, respawns, gun heat and room lifecycle are the current focus.
 
