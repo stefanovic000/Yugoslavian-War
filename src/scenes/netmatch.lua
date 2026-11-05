@@ -541,14 +541,7 @@ function NetMatch:processEvents(events)
       self.teamMode = e.teamMode == true
       self.phase = "match_end"
       self.timer = 3
-      if #self.replayBuffer == 0 and self.snapshot then
-        self:recordReplayFrame(self.snapshot)
-      end
       self.highlight = self.bestReplay
-      if (not self.highlight or #self.highlight == 0) and #self.replayBuffer > 0 then
-        self.highlight = {}
-        for i, frame in ipairs(self.replayBuffer) do self.highlight[i] = frame end
-      end
       self.replayClock = 0
     end
   end
