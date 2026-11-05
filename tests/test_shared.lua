@@ -682,13 +682,37 @@ cases[#cases + 1] = {
         members[c.cluster] = true
       end
     end
-    local count = 0
+    local count, loose = 0, 0
+    for _, c in ipairs(clouds.list) do
+      if not c.cluster then loose = loose + 1 end
+    end
     for _, g in pairs(groups) do
       count = count + 1
       assert(g.n >= 3 and g.n <= 6, "demo cloud bank width outside 3-6")
       assert(g.maxY - g.minY <= 40, "demo cloud bank is not shallow")
     end
     assert(count == 6, "demo clouds need six banks")
+    assert(loose == 2, "demo should have two random singleton clouds")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "clouds never settle on the ground",
+  fn = function()
+    local Clouds = require("shared.clouds")
+    for seed = 1, 40 do
+      for _, count in ipairs({ C.CLOUDS.count, C.CLOUDS.demoCount }) do
+        local clouds = Clouds.new(seed, count)
+        Clouds.avoidPoints(clouds, C.SPAWNS, 80)
+        for _, cloud in ipairs(clouds.list) do
+          for _, puff in ipairs(cloud.puffs) do
+            local bottom = cloud.y + (puff.dy or 0) + (puff.ry or puff.r)
+            assert(bottom < C.WORLD.groundY,
+              "cloud touches the ground at seed " .. seed)
+          end
+        end
+      end
+    end
   end,
 }
 

@@ -22,8 +22,11 @@ function Clouds.new(seed, count, opts)
   local clustered = opts.cluster ~= false
   local horizontal = clustered and count >= C.CLOUDS.demoCount
   local bankCount = horizontal and 6 or 1
-  local clusterCount = clustered and (horizontal and count or math.min(4, count)) or 0
-  local perBank = horizontal and math.max(3, math.ceil(count / bankCount)) or 4
+  local clusterCount = clustered and (horizontal
+    and math.min(count, bankCount * 4) or math.min(4, count)) or 0
+  local perBank = horizontal and math.max(1, math.floor(clusterCount / bankCount)) or 4
+  local minY = 60
+  local maxY = C.WORLD.groundY - 90
 
   local banks = {}
   for g = 1, bankCount do
@@ -35,8 +38,8 @@ function Clouds.new(seed, count, opts)
     end
     banks[g] = {
       x = cx,
-      y = rng:range(C.WORLD.h * 0.30,
-        C.WORLD.h * (horizontal and 0.64 or 0.70)),
+      y = horizontal and rng:range(minY + 30, maxY - 30)
+        or rng:range(C.WORLD.h * 0.30, C.WORLD.h * 0.60),
       speed = rng:range(-5, 9),
     }
   end
@@ -50,13 +53,13 @@ function Clouds.new(seed, count, opts)
       local spreadX = horizontal and 72 or 52
       local spreadY = horizontal and 18 or 34
       x = M.clamp(bank.x + rng:range(-spreadX, spreadX), 0, C.WORLD.w)
-      y = M.clamp(bank.y + rng:range(-spreadY, spreadY), 0, C.WORLD.h)
+      y = M.clamp(bank.y + rng:range(-spreadY, spreadY), minY, maxY)
       r = rng:range(horizontal and 30 or 34, horizontal and 42 or 46)
       speed = bank.speed
       cluster = group
     else
       x = rng:range(0, C.WORLD.w)
-      y = rng:range(0, C.WORLD.h)
+      y = rng:range(minY, maxY)
       r = rng:range(C.CLOUDS.minRadius, C.CLOUDS.maxRadius)
       speed = rng:range(-5, 9)
       cluster = nil
@@ -165,7 +168,7 @@ function Clouds.avoidPoints(clouds, points, margin)
       local off = offsets[key]
       if off then
         cloud.x = M.clamp(cloud.x + off.x, -cloud.r, clouds.w + cloud.r)
-        cloud.y = M.clamp(cloud.y + off.y, 0, clouds.h)
+        cloud.y = M.clamp(cloud.y + off.y, 60, C.WORLD.groundY - 90)
       end
     end
   end
