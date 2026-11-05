@@ -460,11 +460,7 @@ function NetMatch:processEvents(events)
         self.partFlash[e.part] = 0.30
       end
       self:spawnDamageDebris(e)
-      if self.spectator then
-        self:noteHighlightHit(e)
-      elseif e.owner == self.selfId or tostring(e.owner) == tostring(self.selfId) then
-        self:noteHighlightHit(e)
-      end
+      self:noteHighlightHit(e)
     elseif e.type == "kill" then
       Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
@@ -546,6 +542,7 @@ function NetMatch:processEvents(events)
       self.timer = 3
       self.highlight = self.bestReplay
       self.replayClock = 0
+      self:prepareHighlight()
     end
   end
 end
@@ -583,8 +580,25 @@ function NetMatch:noteHighlightHit(e)
   if score > self.bestReplayScore and #self.replayBuffer >= 1 then
     self.bestReplayScore = score
     self.bestFocus = { x = e.x or 500, y = e.y or 220 }
+    self.bestPair = { owner = e.owner, victim = e.victim }
     self.bestReplay = {}
     for i, frame in ipairs(self.replayBuffer) do self.bestReplay[i] = frame end
+  end
+end
+
+function NetMatch:prepareHighlight()
+  self.highlightMaxDist = 0
+  if not self.highlight or not self.bestPair then return end
+  for _, frame in ipairs(self.highlight) do
+    local a, b
+    for _, p in ipairs(frame.planes or {}) do
+      if p.id == self.bestPair.owner then a = p end
+      if p.id == self.bestPair.victim then b = p end
+    end
+    if a and b then
+      self.highlightMaxDist = math.max(self.highlightMaxDist,
+        math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2))
+    end
   end
 end
 
@@ -603,10 +617,18 @@ function NetMatch:drawHighlight(x, y, w, h)
   end
   local progress = math.min(0.999, (self.replayClock or 0) / 2.6)
   local frame = frames[math.max(1, math.floor(progress * #frames) + 1)]
-  local sx, sy = w / 300, h / 170
-  local s = math.min(sx, sy)
   local fx, fy = (self.bestFocus and self.bestFocus.x) or frame.focusX or 500,
     (self.bestFocus and self.bestFocus.y) or frame.focusY or 220
+  if self.bestPair then
+    local a, b
+    for _, p in ipairs(frame.planes or {}) do
+      if p.id == self.bestPair.owner then a = p end
+      if p.id == self.bestPair.victim then b = p end
+    end
+    if a and b then fx, fy = (a.x + b.x) * 0.5, (a.y + b.y) * 0.5 end
+  end
+  local viewW = math.max(240, (self.highlightMaxDist or 0) + 140)
+  local s = w / viewW
   love.graphics.setColor(0.43, 0.62, 0.72, 1)
   love.graphics.rectangle("fill", x, y, w, h)
   love.graphics.push()
@@ -685,6 +707,7 @@ function NetMatch:onSnapshot(msg)
   if msg.phase == "match_end" and self.phase ~= "match_end" then
     self.highlight = self.bestReplay
     self.replayClock = 0
+    self:prepareHighlight()
   end
   if msg.phase == "prep" and self.phase ~= "prep" then
     self:clearSmokeClouds()
@@ -1545,7 +1568,7 @@ function NetMatch:drawHud()
     local mvpName = self.mvp and (self.names[self.mvp] or ("P" .. tostring(self.mvp))) or "NOBODY"
     love.graphics.printf("MVP: " .. mvpName:upper(), 0, 168, 640, "center")
     love.graphics.printf("RETURNING TO LOBBY", 0, 190, 640, "center")
-    self:drawHighlight(400, 54, 210, 118)
+    self:drawHighlight(384, 204, 244, 138)
   end
 end
 
