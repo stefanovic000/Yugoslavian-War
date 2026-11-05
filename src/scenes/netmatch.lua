@@ -215,6 +215,7 @@ function NetMatch:handleMessage(msg)
   elseif msg.type == "match_cancelled" then
     self.client.matchActive = false
     self.client.notice = msg.reason or "MATCH ENDED"
+    self.client.lobbyRoom = msg.room
     self.exited = true
     App:pop()
   elseif msg.type == "joined_match" then

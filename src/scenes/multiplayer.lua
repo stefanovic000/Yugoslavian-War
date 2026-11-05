@@ -172,6 +172,17 @@ function Multiplayer:update(dt)
   self.chatTimer = math.max(0, (self.chatTimer or 0) - dt)
 
   self.client:update(dt)
+  if self.client.lobbyRoom then
+    self.roomState = self.client.lobbyRoom
+    self.client.lobbyRoom = nil
+    self.phase = "lobby"
+    self.inMatch = false
+    local isPlayer = false
+    for _, p in ipairs(self.roomState.players or {}) do
+      if p.id == self.client.selfId then isPlayer = true; break end
+    end
+    self.spectator = not isPlayer
+  end
 
   if self.client.notice then
     self.message = self.client.notice
