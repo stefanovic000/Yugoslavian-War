@@ -3,6 +3,7 @@
 -- air while the plane moves away, so the trail always forms behind it.
 
 local Clouds = require("shared.clouds")
+local CloudWake = require("src.game.cloudwake")
 
 local CloudFx = {}
 CloudFx.__index = CloudFx
@@ -15,6 +16,7 @@ function CloudFx.new()
     trailTimer = 0,
     cooldown = 0,
     trail = {},
+    wake = CloudWake.new(),
   }, CloudFx)
 end
 
@@ -33,6 +35,7 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
     self.inside, self.cloud = false, nil
     self.emitTimer, self.trailTimer, self.cooldown = 0, 0, 0
     self.trail = {}
+    self.wake:clear()
     return
   end
 
@@ -43,6 +46,7 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
   local dir = math.atan2(plane.vy, plane.vx)
   local backX, backY = -math.cos(dir), -math.sin(dir)
   local sideX, sideY = -math.sin(dir), math.cos(dir)
+  self.wake:update(dt, plane, inside, speed, dir)
 
   if inside then
     self.trailTimer = self.trailTimer + dt
@@ -112,6 +116,10 @@ function CloudFx:update(dt, plane, clouds, particles, enabled)
 
   self.inside = inside
   self.cloud = cloud
+end
+
+function CloudFx:drawWake()
+  self.wake:draw()
 end
 
 return CloudFx

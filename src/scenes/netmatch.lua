@@ -900,6 +900,7 @@ function NetMatch:drawWorld()
   for _, cloud in ipairs(self.clouds.list) do
     Sprites.drawCloudCopies(cloud, 1)
   end
+  self.cloudFx:drawWake()
   self.particles:drawCloud()
 
   if playerHidden and self.localPlane then

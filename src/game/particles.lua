@@ -174,22 +174,36 @@ function Particles:draw()
   love.graphics.pop()
 end
 
+function Particles:cloudImage()
+  if self._cloudImage then return self._cloudImage end
+  local size = 64
+  local data = love.image.newImageData(size, size)
+  local half = (size - 1) * 0.5
+  data:mapPixel(function(px, py)
+    local dx, dy = (px - half) / half, (py - half) / half
+    local d = math.sqrt(dx * dx + dy * dy)
+    local a = math.max(0, 1 - d)
+    a = a * a * (3 - 2 * a)
+    return 1, 1, 1, a
+  end)
+  self._cloudImage = love.graphics.newImage(data)
+  self._cloudImage:setFilter("linear", "linear")
+  return self._cloudImage
+end
+
 function Particles:drawCloud()
+  local img = self:cloudImage()
   love.graphics.push("all")
+  love.graphics.setBlendMode("alpha")
   for _, p in ipairs(self.items) do
     if p.kind == "cloud" then
       local t = p.life / p.maxLife
-      local size = p.size
-      love.graphics.push()
-      love.graphics.translate(p.x, p.y)
-      love.graphics.rotate(p.rot or 0)
-      love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.22 * t)
-      love.graphics.ellipse("fill", 0, 0, size * 1.18, size * 0.82, 10)
-      love.graphics.setColor(1, 1, 1, 0.13 * t)
-      love.graphics.ellipse("fill", -size * 0.16, -size * 0.10, size * 0.72, size * 0.52, 8)
-      love.graphics.setColor(0.82, 0.86, 0.87, 0.10 * t)
-      love.graphics.ellipse("fill", size * 0.20, size * 0.08, size * 0.55, size * 0.40, 8)
-      love.graphics.pop()
+      local scale = p.size / 26
+      love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.30 * t)
+      love.graphics.draw(img, p.x, p.y, p.rot or 0, scale * 1.35, scale * 0.95, 32, 32)
+      love.graphics.setColor(1, 1, 1, 0.16 * t)
+      love.graphics.draw(img, p.x - p.size * 0.12, p.y - p.size * 0.10,
+        p.rot or 0, scale * 0.62, scale * 0.48, 32, 32)
     end
   end
   love.graphics.pop()

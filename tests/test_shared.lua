@@ -734,6 +734,12 @@ cases[#cases + 1] = {
     fx:update(C.TICK, plane, clouds, particles, true)
     assert(particles:count() >= 3, "no cloud entry wisps")
     assert((cloud.fxPulse or 0) > 0, "cloud did not pulse on entry")
+    assert(#fx.wake.points > 0, "no cloud wake ribbon points")
+    for _ = 1, 8 do
+      plane.x = plane.x + 2
+      fx:update(0.02, plane, clouds, particles, true)
+    end
+    fx:drawWake()
     local before = particles:count()
     plane.x, plane.y = 10, 10
     fx:update(C.TICK, plane, clouds, particles, true)
