@@ -18,20 +18,41 @@ function Clouds.new(seed, count, opts)
   -- One proper bank per field: several overlapping clouds that take roughly a
   -- second or two to cross at combat speed. The rest are scattered. The bank
   -- is moved as a group by avoidPoints so a spawn nudge cannot break it apart.
+  -- Demo fields use several wider, shallower banks spread across the arena.
   local clustered = opts.cluster ~= false
-  local clusterCount = clustered and math.min(4, count) or 0
-  local cx = rng:range(C.WORLD.w * 0.30, C.WORLD.w * 0.70)
-  local cy = rng:range(C.WORLD.h * 0.30, C.WORLD.h * 0.70)
-  local clusterSpeed = rng:range(-5, 9)
+  local horizontal = clustered and count >= C.CLOUDS.demoCount
+  local bankCount = horizontal and math.max(2, math.ceil(count / 5)) or 1
+  local clusterCount = clustered and (horizontal
+    and math.min(count, bankCount * 4) or math.min(4, count)) or 0
+
+  local banks = {}
+  for g = 1, bankCount do
+    local cx
+    if horizontal then
+      cx = C.WORLD.w * (g / (bankCount + 1)) + rng:range(-30, 30)
+    else
+      cx = rng:range(C.WORLD.w * 0.30, C.WORLD.w * 0.70)
+    end
+    banks[g] = {
+      x = cx,
+      y = rng:range(C.WORLD.h * 0.30,
+        C.WORLD.h * (horizontal and 0.64 or 0.70)),
+      speed = rng:range(-5, 9),
+    }
+  end
 
   for i = 1, count do
     local x, y, r, speed, cluster
     if i <= clusterCount then
-      x = M.clamp(cx + rng:range(-52, 52), 0, C.WORLD.w)
-      y = M.clamp(cy + rng:range(-34, 34), 0, C.WORLD.h)
-      r = rng:range(34, 46)
-      speed = clusterSpeed
-      cluster = 1
+      local group = horizontal and (math.floor((i - 1) / 4) + 1) or 1
+      local bank = banks[group]
+      local spreadX = horizontal and 72 or 52
+      local spreadY = horizontal and 18 or 34
+      x = M.clamp(bank.x + rng:range(-spreadX, spreadX), 0, C.WORLD.w)
+      y = M.clamp(bank.y + rng:range(-spreadY, spreadY), 0, C.WORLD.h)
+      r = rng:range(horizontal and 30 or 34, horizontal and 42 or 46)
+      speed = bank.speed
+      cluster = group
     else
       x = rng:range(0, C.WORLD.w)
       y = rng:range(0, C.WORLD.h)

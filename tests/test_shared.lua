@@ -666,4 +666,30 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "demo cloud cover forms wide shallow banks",
+  fn = function()
+    local Clouds = require("shared.clouds")
+    local clouds = Clouds.new(91, C.CLOUDS.demoCount)
+    local groups, members = {}, {}
+    for _, c in ipairs(clouds.list) do
+      if c.cluster then
+        groups[c.cluster] = groups[c.cluster] or { minY = 1e9, maxY = -1e9, n = 0 }
+        local g = groups[c.cluster]
+        g.minY = math.min(g.minY, c.y)
+        g.maxY = math.max(g.maxY, c.y)
+        g.n = g.n + 1
+        members[c.cluster] = true
+      end
+    end
+    local count = 0
+    for _, g in pairs(groups) do
+      count = count + 1
+      assert(g.n >= 3, "demo cloud bank too small")
+      assert(g.maxY - g.minY <= 40, "demo cloud bank is not shallow")
+    end
+    assert(count >= 2, "demo clouds need multiple horizontal banks")
+  end,
+}
+
 return cases
