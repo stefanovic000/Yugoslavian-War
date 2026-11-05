@@ -12,6 +12,7 @@ local Settings = require("src.game.settings")
 local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
+local CloudShadows = require("src.game.cloudshadows")
 local Walls = require("src.game.walls")
 local Camera = require("src.game.camera")
 local Vision = require("shared.vision")
@@ -89,6 +90,10 @@ function NetMatch:enter(client, startMsg)
   self.hover = nil
   self.particles = Particles.new(700)
   self.cloudFx = CloudFx.new()
+  self.chatOpen = false
+  self.chatText = ""
+  self.chatLog = {}
+  self.chatTimer = 0
   self.debrisSeen = {}
   self.hitMarker = 0
   self.hitX, self.hitY = 0, 0
@@ -210,6 +215,10 @@ function NetMatch:handleMessage(msg)
     self.noticeTimer = 3
   elseif msg.type == "room" then
     self.roomState = msg.room
+  elseif msg.type == "chat" then
+    self.chatLog[#self.chatLog + 1] = { name = msg.name or "PILOT", text = msg.text or "" }
+    if #self.chatLog > 20 then table.remove(self.chatLog, 1) end
+    self.chatTimer = 6
   elseif msg.type == "kicked" then
     self.client.matchActive = false
     self.client.notice = "KICKED: " .. tostring(msg.reason or "BY HOST")
@@ -302,6 +311,20 @@ function NetMatch:spawnPartPanel(e, part)
   end
 end
 
+function NetMatch:spawnWingSeparation(e, v)
+  local wing = { 8, 1, 5, 5, -5, 5, -8, 2, -3, 1 }
+  local dir = self:debrisDirection(e)
+  self.particles:panel(e.x, e.y,
+    math.cos(dir) * 32, math.sin(dir) * 32 - 12,
+    wing, { 0.38, 0.41, 0.34 }, 1.9,
+    v.angle, 1.15)
+  for _ = 1, 2 do
+    self.particles:cloudWisp(e.x, e.y,
+      (love.math.random() - 0.5) * 24, -8 - love.math.random() * 16,
+      4 + love.math.random() * 4, 0.55, { 0.42, 0.43, 0.40 })
+  end
+end
+
 function NetMatch:spawnDamageDebris(e)
   if not e.victim or not self:damageVisible(e.victim) then return end
   local part = e.part or "engine"
@@ -325,6 +348,7 @@ function NetMatch:spawnDamageDebris(e)
   local band = hp <= 0 and 0 or (hp <= 22 and 22 or (hp <= 45 and 45 or 60))
   if band < prev then
     seen[part] = band
+    if part == "wing" and band == 22 then self:spawnWingSeparation(e, v) end
     if band > 0 then
       self:spawnPartPanel(e, part)
       self:throwDebris(e, part, 3, 55, 165, 1.1, 2.6)
@@ -651,6 +675,10 @@ function NetMatch:updateVisuals(dt)
       local k = 1 - math.exp(-15 * dt)
       v.x = v.x + (target.x - v.x) * k
       v.y = v.y + (target.y - v.y) * k
+      if dt > 0.0001 then
+        v.vx = (v.x - v.prevX) / dt
+        v.vy = (v.y - v.prevY) / dt
+      end
       v.angle = v.angle + M.angleDiff(v.angle, target.a) * k
       v.hp = target.hp
       v.alive = target.alive
@@ -734,6 +762,7 @@ function NetMatch:update(dt)
   end
 
   self.uiTime = self.uiTime + dt
+  self.chatTimer = math.max(0, (self.chatTimer or 0) - dt)
   self.bannerTimer = math.max(0, self.bannerTimer - dt)
   self.noticeTimer = math.max(0, self.noticeTimer - dt)
   self.hintTimer = math.max(0, self.hintTimer - dt)
@@ -769,7 +798,7 @@ function NetMatch:update(dt)
         Audio.setEngine(id,
           v.x - self.localPlane.x, v.y - self.localPlane.y,
           (self.visualTargets[id] and self.visualTargets[id].throttle) or 0.6,
-          true, Clouds.pointInside(self.clouds, v.x, v.y))
+          true, Clouds.pointInside(self.clouds, v.x, v.y), v.vx or 0, v.vy or 0)
       end
     end
     for id in pairs(Audio.engines) do
@@ -965,6 +994,7 @@ function NetMatch:drawWorld()
 
   Walls.draw()
   Ground.draw()
+  CloudShadows.draw(self.clouds)
 
   local snap = self.snapshot
   local age = math.min(0.15, love.timer.getTime() - self.snapRecvAt)
@@ -1406,6 +1436,7 @@ function NetMatch:draw()
   end
   self:drawHud()
   if self.leavePrompt then self:drawLeavePrompt() end
+  self:drawChat()
 end
 
 function NetMatch:requestJoinNext()
@@ -1422,7 +1453,59 @@ function NetMatch:leaveMatch()
   App:pop()
 end
 
+function NetMatch:sendChat()
+  local text = self.chatText:gsub("^%s+", ""):gsub("%s+$", "")
+  if text ~= "" then self.client:send({ type = "chat", text = text }) end
+  self.chatText = ""
+  self.chatOpen = false
+end
+
+function NetMatch:textinput(text)
+  if self.chatOpen and #self.chatText < 80 then self.chatText = self.chatText .. text end
+end
+
+function NetMatch:drawChat()
+  if self.chatOpen then
+    UI.set(UI.C.ink, 0.72)
+    love.graphics.rectangle("fill", 0, 0, 640, 360)
+    UI.panel(120, 92, 400, 176)
+    UI.small("CHAT / ENTER SEND / ESC CLOSE", 136, 104, UI.C.orange)
+    local start = math.max(1, #self.chatLog - 6)
+    for i = start, #self.chatLog do
+      local m = self.chatLog[i]
+      UI.small((m.name .. ": " .. m.text):sub(1, 62), 136, 126 + (i - start) * 14,
+        UI.C.cream2, "left", 368)
+    end
+    UI.set(UI.C.ink3)
+    love.graphics.rectangle("fill", 136, 232, 368, 20)
+    UI.set(UI.C.cream)
+    love.graphics.setFont(UI.font(8))
+    love.graphics.print(self.chatText .. "|", 142, 238)
+  elseif self.chatTimer > 0 and #self.chatLog > 0 then
+    local m = self.chatLog[#self.chatLog]
+    UI.set(UI.C.ink, 0.78)
+    love.graphics.rectangle("fill", 20, 334, 600, 18)
+    UI.small((m.name .. ": " .. m.text):sub(1, 74), 28, 338, UI.C.cream2)
+  end
+end
+
 function NetMatch:keypressed(key)
+  if self.chatOpen then
+    if key == "escape" then
+      self.chatOpen = false
+      self.chatText = ""
+    elseif key == "backspace" then
+      self.chatText = self.chatText:sub(1, -2)
+    elseif key == "return" or key == "kpenter" then
+      self:sendChat()
+    end
+    return
+  end
+  if (key == "return" or key == "kpenter") and not self.leavePrompt then
+    self.chatOpen = true
+    self.chatText = ""
+    return
+  end
   if self.leavePrompt then
     if key == "escape" then
       self.leavePrompt = false

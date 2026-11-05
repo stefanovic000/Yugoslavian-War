@@ -316,6 +316,10 @@ function Server:roomState(room)
     if room.ready[id] then readyCount = readyCount + 1 end
   end
   local allReady = #room.players > 0 and readyCount == #room.players
+  local totalPilots = #room.players + (room.bots or 0)
+  local startable = room.status == "lobby" and allReady
+    and totalPilots >= C.MIN_PLAYERS
+    and not (room.mode == "1v1" and totalPilots ~= 2)
   return {
     type = "room",
     room = {
@@ -327,6 +331,7 @@ function Server:roomState(room)
       spectators = spectators,
       readyCount = readyCount,
       allReady = allReady,
+      startable = startable,
       max = C.MAX_PLAYERS,
       bots = room.bots or 0,
       botTeams = room.botTeams or {},
@@ -947,6 +952,33 @@ function Server.handlers.join_match(self, client)
   client.spectator = false
   self:broadcastRoom(room)
   self:send(client, { type = "joined_match" })
+end
+
+function Server.handlers.chat(self, client, msg)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room then return end
+  local text = tostring(msg.text or ""):gsub("[%c]", " "):gsub("%s+", " ")
+    :gsub("^%s+", ""):gsub("%s+$", ""):sub(1, 80)
+  if text == "" then return end
+  local t = now()
+  client.chatTimes = client.chatTimes or {}
+  local recent = 0
+  for i = #client.chatTimes, 1, -1 do
+    if t - client.chatTimes[i] > 4 then table.remove(client.chatTimes, i)
+    else recent = recent + 1 end
+  end
+  if recent >= 5 then return end
+  client.chatTimes[#client.chatTimes + 1] = t
+  local out = { type = "chat", from = client.id, name = client.name, text = text }
+  for _, id in ipairs(room.players) do
+    local c = self.clients[id]
+    if c then self:send(c, out) end
+  end
+  for _, id in ipairs(room.spectators) do
+    local c = self.clients[id]
+    if c then self:send(c, out) end
+  end
 end
 
 function Server.handlers.ping(self, client, msg)

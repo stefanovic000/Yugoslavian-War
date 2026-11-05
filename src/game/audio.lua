@@ -140,7 +140,7 @@ end
 
 -- Continuous engine drone for a remote aircraft. It is audible even when the
 -- aircraft is outside the vision cone, which is the main rear-awareness cue.
-function Audio.setEngine(id, dx, dy, throttle, active, occluded)
+function Audio.setEngine(id, dx, dy, throttle, active, occluded, vx, vy)
   if not Audio.enabled then return end
   Audio.init()
   if not Audio.enabled then return end
@@ -159,7 +159,12 @@ function Audio.setEngine(id, dx, dy, throttle, active, occluded)
   local vol = clamp(0.05 + (1 - dist / 700) * 0.28, 0.04, 0.32)
   if occluded then vol = vol * 0.55 end
   e.src:setVolume(clamp(vol * gain() * (Settings.data.engineVolume or 1), 0, 1))
-  e.src:setPitch(0.60 + clamp(throttle or 0.6, 0, 1) * 0.45)
+  local dop = 1
+  if vx and vy and dist > 1 then
+    local closing = (vx * dx + vy * dy) / dist
+    dop = 1 - clamp(closing / 1100, -0.12, 0.12)
+  end
+  e.src:setPitch((0.60 + clamp(throttle or 0.6, 0, 1) * 0.45) * dop)
   -- A wider normalized x makes the stereo cue obvious even on small speakers.
   e.src:setPosition(clamp(dx / 120, -1, 1), 0, -1)
 end

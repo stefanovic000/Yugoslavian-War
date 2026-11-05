@@ -25,6 +25,7 @@ local Audio = require("src.game.audio")
 local Controls = require("src.game.controls")
 local Particles = require("src.game.particles")
 local CloudFx = require("src.game.cloudfx")
+local CloudShadows = require("src.game.cloudshadows")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
 local Combat = require("shared.combat")
@@ -236,6 +237,17 @@ function Solo:partPiece(e, part, count)
   end
 end
 
+function Solo:wingSeparation(e)
+  local victim = (e.victim == 1) and self.player or self.enemy
+  if not victim then return end
+  local wing = { 8, 1, 5, 5, -5, 5, -8, 2, -3, 1 }
+  local dir = self:damageDir(e)
+  self.particles:panel(e.x, e.y,
+    math.cos(dir) * 32, math.sin(dir) * 32 - 12,
+    wing, { 0.38, 0.41, 0.34 }, 1.9, victim.angle, 1.15)
+  self.particles:cloudWisp(e.x, e.y, 0, -14, 6, 0.6, { 0.42, 0.43, 0.40 })
+end
+
 function Solo:spawnHitDamage(e)
   local part = e.part or "engine"
   local victim = (e.victim == 1) and self.player or self.enemy
@@ -260,6 +272,7 @@ function Solo:spawnHitDamage(e)
   local band = hp <= 0 and 0 or (hp <= 22 and 22 or (hp <= 45 and 45 or 60))
   if band < prev and band > 0 then
     seen[part] = band
+    if part == "wing" and band == 22 then self:wingSeparation(e) end
     self:partPiece(e, part, 2)
     self.particles:cloudWisp(e.x, e.y, 0, -20,
       6 + love.math.random() * 5, 0.6, { 0.40, 0.42, 0.39 })
@@ -475,7 +488,8 @@ function Solo:update(dt)
     Audio.setEngine("demo",
       self.enemy.x - self.player.x, self.enemy.y - self.player.y,
       self.enemy.throttle, true,
-      Clouds.pointInside(self.sim.clouds, self.enemy.x, self.enemy.y))
+      Clouds.pointInside(self.sim.clouds, self.enemy.x, self.enemy.y),
+      self.enemy.vx or 0, self.enemy.vy or 0)
   else
     Audio.setEngine("demo", 0, 0, 0, false)
   end
@@ -519,6 +533,7 @@ function Solo:drawWorld()
 
   Walls.draw()
   Ground.draw()
+  CloudShadows.draw(self.sim.clouds)
 
   for _, b in ipairs(self.sim.bullets) do
     if b.x > C.WORLD.wallLeft and b.x < C.WORLD.wallRight

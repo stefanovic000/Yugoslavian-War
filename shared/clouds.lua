@@ -14,6 +14,7 @@ function Clouds.new(seed, count, opts)
   local rng = Rng.new(seed or 1)
   local list = {}
   count = count or C.CLOUDS.count
+  local wind = rng:range(-4, 7)
 
   -- One proper bank per field: several overlapping clouds that take roughly a
   -- second or two to cross at combat speed. The rest are scattered. The bank
@@ -89,7 +90,7 @@ function Clouds.new(seed, count, opts)
     list[i] = cloud
   end
 
-  return { list = list, w = C.WORLD.w, h = C.WORLD.h, clustered = clustered }
+  return { list = list, w = C.WORLD.w, h = C.WORLD.h, clustered = clustered, wind = wind }
 end
 
 function Clouds.update(clouds, dt)
@@ -97,7 +98,7 @@ function Clouds.update(clouds, dt)
     local cloud = clouds.list[i]
     if cloud.smoke then
       cloud.life = (cloud.life or 0) - dt
-      cloud.x = cloud.x + (cloud.speed or 0) * dt
+      cloud.x = cloud.x + ((cloud.speed or 0) + (clouds.wind or 0) * 0.6) * dt
       if cloud.life <= 0 then
         table.remove(clouds.list, i)
       else
@@ -105,7 +106,7 @@ function Clouds.update(clouds, dt)
         cloud.alpha = (cloud.baseAlpha or 0.9) * fade
       end
     else
-      cloud.x = cloud.x + cloud.speed * dt
+      cloud.x = cloud.x + (cloud.speed + (clouds.wind or 0)) * dt
       local margin = cloud.r or 40
       if cloud.x < -margin then
         cloud.x = -margin

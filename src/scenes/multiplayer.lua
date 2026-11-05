@@ -33,6 +33,10 @@ function Multiplayer:enter()
   self.inMatch = false
   self.hover = nil
   self.roomSettingsOpen = false
+  self.chatOpen = false
+  self.chatText = ""
+  self.chatLog = {}
+  self.chatTimer = 0
   self.connectStarted = love.timer.getTime()
   self.flow = _G.DOGFIGHT and _G.DOGFIGHT.opts and _G.DOGFIGHT.opts.flow or nil
   self.flowDone = false
@@ -120,6 +124,10 @@ function Multiplayer:handleMessage(msg)
   elseif msg.type == "became_spectator" then
     self.spectator = true
     self.message = "YOU ARE NOW SPECTATING"
+  elseif msg.type == "chat" then
+    self.chatLog[#self.chatLog + 1] = { name = msg.name or "PILOT", text = msg.text or "" }
+    if #self.chatLog > 20 then table.remove(self.chatLog, 1) end
+    self.chatTimer = 6
   elseif msg.type == "match_start" then
     self.inMatch = true
     self.client.matchActive = true
@@ -160,6 +168,7 @@ end
 
 function Multiplayer:update(dt)
   if not self.client then return end
+  self.chatTimer = math.max(0, (self.chatTimer or 0) - dt)
 
   self.client:update(dt)
 
@@ -247,8 +256,8 @@ end
 
 function Multiplayer:canStart()
   return self.roomState and self.roomState.host == self.client.selfId
-    and self.roomState.status == "lobby" and self:pilotCount() >= C.MIN_PLAYERS
-    and self.roomState.allReady == true
+    and self.roomState.status == "lobby"
+    and self.roomState.startable == true
 end
 
 function Multiplayer:sendRoomSettings(mode, bots, botDifficulty)
@@ -595,7 +604,7 @@ function Multiplayer:drawLobby()
   if room.host == self.client.selfId then
     local member = self:selectedMember()
     UI.button(220, 304, 90, 24, "START", {
-      selected = self:canStart(), disabled = not self:canStart(),
+      selected = self:canStart(), disabled = false,
       hover = self.hover == "start", font = UI.font(8, true),
     })
     UI.button(318, 304, 70, 24, "KICK", {
@@ -612,7 +621,7 @@ function Multiplayer:drawLobby()
 
   UI.small(self.spectator
       and "P JOIN PILOT   /   ESC LEAVE"
-      or "Y READY  /  LEFT RIGHT AIRCRAFT  /  P PILOT  /  S SPEC  /  O ROOM  /  ESC LEAVE",
+      or "Y READY  /  P PILOT  /  S SPEC  /  ENTER CHAT  /  O ROOM  /  ESC",
     36, 338, UI.C.cream2, "left", 560)
   local rttMs = math.floor((self.client.rtt or 0) * 1000 + 0.5)
   if rttMs > 0 then
@@ -622,6 +631,7 @@ function Multiplayer:drawLobby()
   end
 
   if self.roomSettingsOpen then self:drawRoomSettings() end
+  self:drawChat()
 end
 
 function Multiplayer:drawRoomSettings()
@@ -663,7 +673,61 @@ function Multiplayer:draw()
   end
 end
 
+function Multiplayer:sendChat()
+  local text = self.chatText:gsub("^%s+", ""):gsub("%s+$", "")
+  if text ~= "" then self.client:send({ type = "chat", text = text }) end
+  self.chatText = ""
+  self.chatOpen = false
+end
+
+function Multiplayer:textinput(text)
+  if self.chatOpen and #self.chatText < 80 then self.chatText = self.chatText .. text end
+end
+
+function Multiplayer:drawChat()
+  if self.chatOpen then
+    UI.set(UI.C.ink, 0.72)
+    love.graphics.rectangle("fill", 0, 0, 640, 360)
+    UI.panel(120, 92, 400, 176)
+    UI.small("CHAT / ENTER SEND / ESC CLOSE", 136, 104, UI.C.orange)
+    local start = math.max(1, #self.chatLog - 6)
+    for i = start, #self.chatLog do
+      local m = self.chatLog[i]
+      UI.small((m.name .. ": " .. m.text):sub(1, 62), 136, 126 + (i - start) * 14,
+        UI.C.cream2, "left", 368)
+    end
+    UI.set(UI.C.ink3)
+    love.graphics.rectangle("fill", 136, 232, 368, 20)
+    UI.set(UI.C.cream)
+    love.graphics.setFont(UI.font(8))
+    love.graphics.print(self.chatText .. "|", 142, 238)
+  elseif self.chatTimer > 0 and #self.chatLog > 0 then
+    local m = self.chatLog[#self.chatLog]
+    UI.set(UI.C.ink, 0.78)
+    love.graphics.rectangle("fill", 20, 334, 600, 18)
+    UI.small((m.name .. ": " .. m.text):sub(1, 74), 28, 338, UI.C.cream2)
+  end
+end
+
 function Multiplayer:keypressed(key)
+  if self.chatOpen then
+    if key == "escape" then
+      self.chatOpen = false
+      self.chatText = ""
+    elseif key == "backspace" then
+      self.chatText = self.chatText:sub(1, -2)
+    elseif key == "return" or key == "kpenter" then
+      self:sendChat()
+    end
+    return
+  end
+  if key == "return" or key == "kpenter" then
+    if self.phase == "lobby" then
+      self.chatOpen = true
+      self.chatText = ""
+      return
+    end
+  end
   if self.phase == "connecting" then
     if key == "escape" then
       self.client:close()
@@ -753,7 +817,7 @@ function Multiplayer:keypressed(key)
         self:chooseAircraft(list[index].id)
       end
     elseif key == "return" or key == "kpenter" then
-      if self:canStart() then
+      if self.roomState.host == self.client.selfId and self.roomState.status == "lobby" then
         self.client:send({ type = "start" })
       end
     elseif key == "escape" then
@@ -821,7 +885,8 @@ function Multiplayer:mousepressed(x, y)
       self:toggleReady()
     elseif self.spectator and UI.hit(mx, my, 128, 304, 84, 24) then
       self.client:send({ type = "become_player" })
-    elseif UI.hit(mx, my, 220, 304, 90, 24) and self:canStart() then
+    elseif UI.hit(mx, my, 220, 304, 90, 24) and room.host == self.client.selfId
+      and room.status == "lobby" then
       self.client:send({ type = "start" })
     elseif UI.hit(mx, my, 318, 304, 70, 24) then
       local member = self:selectedMember()
