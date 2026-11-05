@@ -460,7 +460,9 @@ function NetMatch:processEvents(events)
         self.partFlash[e.part] = 0.30
       end
       self:spawnDamageDebris(e)
-      if e.owner == self.selfId or tostring(e.owner) == tostring(self.selfId) then
+      if self.spectator then
+        self:noteHighlightHit(e)
+      elseif e.owner == self.selfId or tostring(e.owner) == tostring(self.selfId) then
         self:noteHighlightHit(e)
       end
     elseif e.type == "kill" then
@@ -580,6 +582,7 @@ function NetMatch:noteHighlightHit(e)
   score = score + #self.replayHits * 5
   if score > self.bestReplayScore and #self.replayBuffer >= 1 then
     self.bestReplayScore = score
+    self.bestFocus = { x = e.x or 500, y = e.y or 220 }
     self.bestReplay = {}
     for i, frame in ipairs(self.replayBuffer) do self.bestReplay[i] = frame end
   end
@@ -602,7 +605,8 @@ function NetMatch:drawHighlight(x, y, w, h)
   local frame = frames[math.max(1, math.floor(progress * #frames) + 1)]
   local sx, sy = w / 300, h / 170
   local s = math.min(sx, sy)
-  local fx, fy = frame.focusX or 500, frame.focusY or 220
+  local fx, fy = (self.bestFocus and self.bestFocus.x) or frame.focusX or 500,
+    (self.bestFocus and self.bestFocus.y) or frame.focusY or 220
   love.graphics.setColor(0.43, 0.62, 0.72, 1)
   love.graphics.rectangle("fill", x, y, w, h)
   love.graphics.push()
