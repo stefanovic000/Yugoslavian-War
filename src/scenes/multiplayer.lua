@@ -260,10 +260,12 @@ function Multiplayer:canStart()
     and self.roomState.startable == true
 end
 
-function Multiplayer:sendRoomSettings(mode, bots, botDifficulty)
+function Multiplayer:sendRoomSettings(mode, bots, botDifficulty, rounds)
+  local room = self.roomState or {}
   self.client:send({
     type = "room_settings", mode = mode, bots = bots,
-    botDifficulty = botDifficulty or self.roomState and self.roomState.botDifficulty or "veteran",
+    rounds = rounds or room.rounds or C.ROUNDS,
+    botDifficulty = botDifficulty or room.botDifficulty or "veteran",
   })
 end
 
@@ -639,7 +641,7 @@ function Multiplayer:drawRoomSettings()
   if not room then return end
   UI.set(UI.C.ink, 0.72)
   love.graphics.rectangle("fill", 0, 0, 640, 360)
-  UI.panel(170, 74, 300, 194)
+  UI.panel(170, 74, 300, 218)
   UI.title("ROOM SETTINGS", 82, 12)
   UI.small("MODE", 190, 104, UI.C.cream2, "left")
   UI.button(188, 116, 264, 24, (room.mode or "FFA"):upper(), {
@@ -655,7 +657,13 @@ function Multiplayer:drawRoomSettings()
   UI.button(188, 192, 264, 24, "<  " .. (room.botDifficulty or "VETERAN"):upper() .. "  >", {
     hover = self.hover == "botDifficulty", font = UI.font(9, true),
   })
-  UI.button(270, 224, 100, 24, "CLOSE", {
+  UI.small("ROUNDS", 190, 224, UI.C.cream2, "left")
+  UI.button(188, 238, 34, 24, "-", { hover = self.hover == "roundsMinus", font = UI.font(10, true) })
+  UI.set(UI.C.cream)
+  love.graphics.setFont(UI.font(10, true))
+  love.graphics.printf(tostring(room.rounds or C.ROUNDS), 228, 244, 176, "center")
+  UI.button(418, 238, 34, 24, "+", { hover = self.hover == "roundsPlus", font = UI.font(10, true) })
+  UI.button(270, 268, 100, 24, "CLOSE", {
     hover = self.hover == "roomClose", font = UI.font(8, true),
   })
 end
@@ -863,17 +871,23 @@ function Multiplayer:mousepressed(x, y)
         if room.mode == "ffa" then mode = "1v1"
         elseif room.mode == "1v1" then mode = "2v2"
         elseif room.mode == "2v2" then mode = "demo" end
-        self:sendRoomSettings(mode, room.bots or 0)
+        self:sendRoomSettings(mode, room.bots or 0, room.botDifficulty, room.rounds)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 246, 144, 34, 24) then
-        self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1))
+        self:sendRoomSettings(room.mode, math.max(0, (room.bots or 0) - 1), nil, room.rounds)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 360, 144, 34, 24) then
         local maxBots = math.max(0, C.MAX_PLAYERS - #room.players)
-        self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1))
+        self:sendRoomSettings(room.mode, math.min(maxBots, (room.bots or 0) + 1), nil, room.rounds)
       elseif room.host == self.client.selfId and UI.hit(mx, my, 180, 174, 280, 42) then
         local level = room.botDifficulty or "veteran"
         level = level == "rookie" and "veteran" or level == "veteran" and "ace" or "rookie"
-        self:sendRoomSettings(room.mode, room.bots or 0, level)
-      elseif UI.hit(mx, my, 270, 224, 100, 24) then
+        self:sendRoomSettings(room.mode, room.bots or 0, level, room.rounds)
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 188, 226, 34, 24) then
+        self:sendRoomSettings(room.mode, room.bots or 0, room.botDifficulty,
+          math.max(2, (room.rounds or C.ROUNDS) - 1))
+      elseif room.host == self.client.selfId and UI.hit(mx, my, 418, 226, 34, 24) then
+        self:sendRoomSettings(room.mode, room.bots or 0, room.botDifficulty,
+          math.min(12, (room.rounds or C.ROUNDS) + 1))
+      elseif UI.hit(mx, my, 270, 268, 100, 24) then
         self.roomSettingsOpen = false
       end
       return

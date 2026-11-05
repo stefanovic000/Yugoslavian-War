@@ -190,7 +190,7 @@ run.bat --server --port=7777
 ### Tests
 
 ```bat
-test.bat        :: 71 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
+test.bat        :: 73 unit tests (flight, hitboxes, clouds, teams, bots, rounds, protocol)
 smoke.bat       :: boot, solo flight, commands, console and screenshots
 ```
 

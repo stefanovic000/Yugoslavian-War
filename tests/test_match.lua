@@ -261,4 +261,33 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "odd round counts switch sides after the larger half",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A" }, { id = 2, name = "B" },
+    }, 47, { mode = "1v1", rounds = 5 })
+    m:startRound(3, false)
+    assert(m.sidesSwapped == false, "switched before the larger half")
+    m:startRound(4, false)
+    assert(m.sidesSwapped == true, "did not switch after the larger half")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "tied match concludes as a draw",
+  fn = function()
+    local m = Match.new({
+      { id = 1, name = "A" }, { id = 2, name = "B" },
+    }, 48, { rounds = 1 })
+    m.round = 1
+    m.phase = "round"
+    m.scores[1] = { wins = 0, kills = 2, damage = 20, roundKills = 0 }
+    m.scores[2] = { wins = 0, kills = 2, damage = 20, roundKills = 0 }
+    m:finishRound(nil)
+    assert(m.matchDraw == true, "tie was not marked as a draw")
+    assert(m.champion == nil, "tie still declared a champion")
+  end,
+}
+
 return cases

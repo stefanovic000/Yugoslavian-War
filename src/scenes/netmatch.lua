@@ -536,6 +536,7 @@ function NetMatch:processEvents(events)
       self:setBanner("ROUND OVER  /  " .. name:upper(), 2.2)
     elseif e.type == "match_end" then
       self.champion = e.champion
+      self.matchDraw = e.matchDraw == true
       self.mvp = e.mvp
       self.mode = e.mode or self.mode
       self.teamMode = e.teamMode == true
@@ -677,6 +678,10 @@ end
 function NetMatch:onSnapshot(msg)
   self.snapshot = msg
   self.snapRecvAt = love.timer.getTime()
+  if msg.phase == "match_end" and self.phase ~= "match_end" then
+    self.highlight = self.bestReplay
+    self.replayClock = 0
+  end
   if msg.phase == "prep" and self.phase ~= "prep" then
     self:clearSmokeClouds()
   end
@@ -684,6 +689,7 @@ function NetMatch:onSnapshot(msg)
   self.round = msg.round
   self.timer = msg.timer
   self.champion = msg.champion
+  self.matchDraw = msg.matchDraw == true
   self.mvp = msg.mvp
   self.roundWinner = msg.roundWinner
   self.mode = msg.mode or self.mode
@@ -1508,7 +1514,10 @@ function NetMatch:drawHud()
 
   if self.phase == "match_end" then
     local name, color = "NOBODY", UI.C.cream
-    if self.champion then
+    if self.matchDraw then
+      name = "DRAW"
+      color = UI.C.cream
+    elseif self.champion then
       if (self.teamMode or self.mode == "1v1") and (self.champion == 1 or self.champion == 2) then
         name = (self.champion == 1) and "BLUE" or "RED"
         color = (self.champion == 1) and UI.C.teal or UI.C.orange
@@ -1520,7 +1529,12 @@ function NetMatch:drawHud()
     love.graphics.rectangle("fill", 0, 0, 640, 360)
     UI.set(color)
     love.graphics.setFont(UI.font(20, true))
-    local label = name:upper() .. " WON THE WAR"
+    local label
+    if self.matchDraw then
+      label = "THE WAR ENDED IN A DRAW"
+    else
+      label = name:upper() .. " WON THE WAR"
+    end
     love.graphics.printf(label, 0, 142, 640, "center")
     UI.set(UI.C.cream2)
     love.graphics.setFont(UI.font(8))

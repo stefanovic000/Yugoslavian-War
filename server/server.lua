@@ -336,6 +336,7 @@ function Server:roomState(room)
       bots = room.bots or 0,
       botTeams = room.botTeams or {},
       mode = room.mode or "ffa",
+      rounds = room.rounds or C.ROUNDS,
       botDifficulty = room.botDifficulty or "veteran",
       round = room.match and room.match.round or 0,
       phase = room.match and room.match.phase or "lobby",
@@ -433,6 +434,7 @@ function Server:startMatch(room)
   local players = self:playerInfo(room)
   room.match = Match.new(players, self:randomSeed(), {
     mode = room.mode, botDifficulty = room.botDifficulty,
+    rounds = room.rounds or C.ROUNDS,
   })
   room.status = "playing"
   self:matchStart(room)
@@ -490,6 +492,7 @@ function Server:createRoom(client, msg)
     ready = {},
     bots = 0,
     mode = "ffa",
+    rounds = C.ROUNDS,
     botDifficulty = "veteran",
     botTeams = {},
     lastMvp = nil,
@@ -801,8 +804,11 @@ function Server.handlers.room_settings(self, client, msg)
   bots = math.min(bots, C.MAX_PLAYERS - #room.players)
   local difficulty = tostring(msg.botDifficulty or room.botDifficulty or "veteran")
   if difficulty ~= "rookie" and difficulty ~= "ace" then difficulty = "veteran" end
+  local rounds = math.floor(tonumber(msg.rounds) or room.rounds or C.ROUNDS)
+  rounds = math.max(2, math.min(12, rounds))
   room.mode = mode
   room.bots = bots
+  room.rounds = rounds
   room.botDifficulty = difficulty
   for _, id in ipairs(room.players) do room.ready[id] = false end
   local teamIndex = 0

@@ -161,7 +161,7 @@ function Match:startRound(number, withPrep)
   self.teamKills = { [1] = 0, [2] = 0 }
   self.phase = withPrep and "prep" or "round"
   self.prepTime = withPrep and C.ROUND_BREAK or 0
-  local swapped = number > math.floor(self.rounds / 2)
+  local swapped = number > math.ceil(self.rounds / 2)
   local changedSides = swapped ~= self.sidesSwapped
   self.sidesSwapped = swapped
 
@@ -249,11 +249,13 @@ function Match:finishRound(winner)
 
   if self.round >= self.rounds then
     local bestId, bestWins, bestKills = nil, -1, -1
+    local draw = false
     if self.teamMode then
-      for team = 1, 2 do
-        if (self.teamWins[team] or 0) > bestWins then
-          bestId, bestWins = team, self.teamWins[team]
-        end
+      local w1, w2 = self.teamWins[1] or 0, self.teamWins[2] or 0
+      if w1 == w2 then
+        draw = true
+      else
+        bestId, bestWins = (w1 > w2) and 1 or 2, math.max(w1, w2)
       end
     else
       for id, score in pairs(self.scores) do
@@ -261,8 +263,14 @@ function Match:finishRound(winner)
           bestId, bestWins, bestKills = id, score.wins, score.kills
         end
       end
+      local ties = 0
+      for _, score in pairs(self.scores) do
+        if score.wins == bestWins and score.kills == bestKills then ties = ties + 1 end
+      end
+      if ties > 1 then draw = true; bestId = nil end
     end
-    self.champion = bestId
+    self.champion = draw and nil or bestId
+    self.matchDraw = draw
 
     local mvp, mvpKills, mvpDamage = nil, -1, -1
     for id, score in pairs(self.scores) do
@@ -278,7 +286,8 @@ function Match:finishRound(winner)
     self.endTime = C.ROUND_BREAK
     self.prepTime = 0
     self.events[#self.events + 1] = {
-      type = "match_end", champion = bestId, mvp = mvp, scores = self.scores,
+      type = "match_end", champion = self.champion, matchDraw = draw,
+      mvp = mvp, scores = self.scores,
       teamMode = self.teamMode, teamWins = self.teamWins, mode = self.mode,
     }
   else
@@ -549,6 +558,7 @@ function Match:buildSnapshot()
     rounds = self.rounds,
     timer = r2(self:timer()),
     champion = self.champion,
+    matchDraw = self.matchDraw == true,
     mvp = self.mvp,
     roundWinner = self.roundWinner,
     mode = self.mode,
