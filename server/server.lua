@@ -866,9 +866,46 @@ function Server.handlers.assign(self, client, msg)
     or (msg.role == "player") and "player" or nil
   local team = tonumber(msg.team)
   if self:assignRoomMember(room, target, role, team) then
+    local c = self.clients[target]
+    if c and role == "player" then self:send(c, { type = "became_player" })
+    elseif c and role == "spectator" then self:send(c, { type = "became_spectator" }) end
     self:broadcastRoom(room)
     self:broadcastRooms()
   end
+end
+
+function Server.handlers.become_player(self, client)
+  if not client.hello then return end
+  local room = client.room and self.rooms[client.room]
+  if not room or room.status ~= "lobby" or #room.players >= C.MAX_PLAYERS then return end
+  local found = false
+  for i, id in ipairs(room.spectators) do
+    if id == client.id then
+      table.remove(room.spectators, i)
+      found = true
+      break
+    end
+  end
+  if not found then return end
+  room.players[#room.players + 1] = client.id
+  room.ready[client.id] = false
+  client.spectator = false
+  if room.mode == "2v2" then
+    local c1, c2 = 0, 0
+    for _, pid in ipairs(room.players) do
+      if room.playerTeams[pid] == 1 then c1 = c1 + 1
+      elseif room.playerTeams[pid] == 2 then c2 = c2 + 1 end
+    end
+    room.playerTeams[client.id] = (c1 <= c2) and 1 or 2
+  else
+    room.playerTeams[client.id] = client.id
+  end
+  if room.bots and #room.players + room.bots > C.MAX_PLAYERS then
+    room.bots = math.max(0, C.MAX_PLAYERS - #room.players)
+  end
+  self:send(client, { type = "became_player" })
+  self:broadcastRoom(room)
+  self:broadcastRooms()
 end
 
 function Server.handlers.pick_team(self, client, msg)

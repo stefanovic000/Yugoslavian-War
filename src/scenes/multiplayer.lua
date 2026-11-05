@@ -114,6 +114,12 @@ function Multiplayer:handleMessage(msg)
   elseif msg.type == "joined_match" then
     self.spectator = false
     self.message = "YOU ARE IN THE NEXT MATCH"
+  elseif msg.type == "became_player" then
+    self.spectator = false
+    self.message = "YOU ARE NOW A PILOT"
+  elseif msg.type == "became_spectator" then
+    self.spectator = true
+    self.message = "YOU ARE NOW SPECTATING"
   elseif msg.type == "match_start" then
     self.inMatch = true
     self.client.matchActive = true
@@ -580,6 +586,11 @@ function Multiplayer:drawLobby()
       selected = me.ready == true, hover = self.hover == "ready",
       font = UI.font(7, true),
     })
+  elseif self.spectator then
+    UI.button(128, 304, 84, 24, "JOIN PILOT", {
+      disabled = #room.players >= (room.max or C.MAX_PLAYERS),
+      font = UI.font(6, true),
+    })
   end
   if room.host == self.client.selfId then
     local member = self:selectedMember()
@@ -599,7 +610,9 @@ function Multiplayer:drawLobby()
     hover = self.hover == "settings", font = UI.font(7, true),
   })
 
-  UI.small("Y READY   /   LEFT RIGHT AIRCRAFT   /   O ROOM   /   ESC LEAVE",
+  UI.small(self.spectator
+      and "P JOIN PILOT   /   ESC LEAVE"
+      or "Y READY  /  LEFT RIGHT AIRCRAFT  /  P PILOT  /  S SPEC  /  O ROOM  /  ESC LEAVE",
     36, 338, UI.C.cream2, "left", 560)
   local rttMs = math.floor((self.client.rtt or 0) * 1000 + 0.5)
   if rttMs > 0 then
@@ -717,10 +730,14 @@ function Multiplayer:keypressed(key)
       if member and member.id ~= self.roomState.host then
         self.client:send({ type = "assign", target = member.id, role = "spectator" })
       end
-    elseif key == "p" and self.roomState.host == self.client.selfId then
-      local member = self:selectedMember()
-      if member then
-        self.client:send({ type = "assign", target = member.id, role = "player" })
+    elseif key == "p" then
+      if self.spectator then
+        self.client:send({ type = "become_player" })
+      elseif self.roomState.host == self.client.selfId then
+        local member = self:selectedMember()
+        if member then
+          self.client:send({ type = "assign", target = member.id, role = "player" })
+        end
       end
     elseif key == "y" then
       if self:myRoomPlayer() then self:toggleReady() end
@@ -802,6 +819,8 @@ function Multiplayer:mousepressed(x, y)
       self:leaveRoom()
     elseif self:myRoomPlayer() and UI.hit(mx, my, 128, 304, 84, 24) then
       self:toggleReady()
+    elseif self.spectator and UI.hit(mx, my, 128, 304, 84, 24) then
+      self.client:send({ type = "become_player" })
     elseif UI.hit(mx, my, 220, 304, 90, 24) and self:canStart() then
       self.client:send({ type = "start" })
     elseif UI.hit(mx, my, 318, 304, 70, 24) then
