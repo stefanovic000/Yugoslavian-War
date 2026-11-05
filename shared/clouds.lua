@@ -46,29 +46,39 @@ function Clouds.new(seed, count, opts)
 
   for i = 1, count do
     local x, y, r, speed, cluster
+    local bigCloud = false
     if i <= clusterCount then
       local group = horizontal and (math.floor((i - 1) / perBank) + 1) or 1
       if group > bankCount then group = bankCount end
       local bank = banks[group]
-      local spreadX = horizontal and 72 or 52
-      local spreadY = horizontal and 18 or 34
-      x = M.clamp(bank.x + rng:range(-spreadX, spreadX), 0, C.WORLD.w)
+      local slot = horizontal and ((i - 1) % perBank) or 0
+      local inBank = horizontal
+        and math.min(perBank, clusterCount - (group - 1) * perBank) or 1
+      local spreadX = horizontal and 42 or 52
+      local spreadY = horizontal and 14 or 34
+      local slotX = horizontal
+        and (slot - (inBank - 1) * 0.5) * spreadX or 0
+      x = M.clamp(bank.x + slotX + rng:range(-6, 6), 0, C.WORLD.w)
       y = M.clamp(bank.y + rng:range(-spreadY, spreadY), minY, maxY)
       r = rng:range(horizontal and 30 or 34, horizontal and 42 or 46)
       speed = bank.speed
       cluster = group
     else
+      local big = horizontal and (i == clusterCount + 1)
       x = rng:range(0, C.WORLD.w)
-      y = rng:range(minY, maxY)
-      r = rng:range(C.CLOUDS.minRadius, C.CLOUDS.maxRadius)
+      y = big and rng:range(minY + 30, maxY - 70) or rng:range(minY, maxY)
+      r = big and rng:range(62, 70)
+        or rng:range(C.CLOUDS.minRadius, C.CLOUDS.maxRadius)
       speed = rng:range(-5, 9)
       cluster = nil
+      bigCloud = big
     end
     local cloud = {
       x = x,
       y = y,
       r = r,
       speed = speed,
+      big = bigCloud,
       alpha = rng:range(0.78, 0.96),
       variant = rng:int(1, 3),
       cluster = cluster,

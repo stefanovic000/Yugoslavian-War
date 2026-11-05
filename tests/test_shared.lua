@@ -671,28 +671,32 @@ cases[#cases + 1] = {
   fn = function()
     local Clouds = require("shared.clouds")
     local clouds = Clouds.new(91, C.CLOUDS.demoCount)
-    local groups, members = {}, {}
+    local groups, loose, big = {}, 0, 0
     for _, c in ipairs(clouds.list) do
+      if not c.cluster then loose = loose + 1 end
+      if c.big then big = big + 1; assert(c.r >= 60, "big cloud is not big") end
       if c.cluster then
-        groups[c.cluster] = groups[c.cluster] or { minY = 1e9, maxY = -1e9, n = 0 }
+        groups[c.cluster] = groups[c.cluster] or { minY = 1e9, maxY = -1e9, n = 0, xs = {} }
         local g = groups[c.cluster]
         g.minY = math.min(g.minY, c.y)
         g.maxY = math.max(g.maxY, c.y)
         g.n = g.n + 1
-        members[c.cluster] = true
+        g.xs[#g.xs + 1] = c.x
       end
     end
-    local count, loose = 0, 0
-    for _, c in ipairs(clouds.list) do
-      if not c.cluster then loose = loose + 1 end
-    end
+    local count = 0
     for _, g in pairs(groups) do
       count = count + 1
       assert(g.n >= 3 and g.n <= 6, "demo cloud bank width outside 3-6")
       assert(g.maxY - g.minY <= 40, "demo cloud bank is not shallow")
+      table.sort(g.xs)
+      for i = 2, #g.xs do
+        assert(g.xs[i] - g.xs[i - 1] >= 24, "clouds stacked within a bank")
+      end
     end
     assert(count == 6, "demo clouds need six banks")
     assert(loose == 2, "demo should have two random singleton clouds")
+    assert(big == 1, "demo should have exactly one big cloud")
   end,
 }
 
