@@ -720,4 +720,25 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "demo cloud wake emits entry and exit wisps",
+  fn = function()
+    local Clouds = require("shared.clouds")
+    local CloudFx = require("src.game.cloudfx")
+    local Particles = require("src.game.particles")
+    local clouds = Clouds.new(92, C.CLOUDS.demoCount)
+    local cloud = clouds.list[1]
+    local particles = Particles.new(200)
+    local fx = CloudFx.new()
+    local plane = { x = cloud.x, y = cloud.y, vx = 130, vy = -20, alive = true }
+    fx:update(C.TICK, plane, clouds, particles, true)
+    assert(particles:count() >= 3, "no cloud entry wisps")
+    assert((cloud.fxPulse or 0) > 0, "cloud did not pulse on entry")
+    local before = particles:count()
+    plane.x, plane.y = 10, 10
+    fx:update(C.TICK, plane, clouds, particles, true)
+    assert(particles:count() > before, "no cloud exit scatter")
+  end,
+}
+
 return cases

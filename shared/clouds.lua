@@ -107,7 +107,7 @@ end
 
 -- True if a world point is inside a cloud puff. The arena is bounded, so no
 -- wrapped copies are tested.
-function Clouds.pointInside(clouds, x, y)
+function Clouds.cloudAt(clouds, x, y)
   for _, cloud in ipairs(clouds.list) do
     for _, puff in ipairs(cloud.puffs) do
       local dx = cloud.x + puff.dx - x
@@ -115,11 +115,15 @@ function Clouds.pointInside(clouds, x, y)
       local rx = puff.rx or puff.r
       local ry = puff.ry or puff.r
       if (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1 then
-        return true
+        return cloud
       end
     end
   end
-  return false
+  return nil
+end
+
+function Clouds.pointInside(clouds, x, y)
+  return Clouds.cloudAt(clouds, x, y) ~= nil
 end
 
 -- True if the segment a->b passes through a cloud puff.

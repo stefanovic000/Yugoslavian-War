@@ -18,6 +18,7 @@ local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
 local Controls = require("src.game.controls")
 local Aircraft = require("shared.aircraft")
+local CloudFx = require("src.game.cloudfx")
 local Particles = require("src.game.particles")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
@@ -85,6 +86,7 @@ function NetMatch:enter(client, startMsg)
   self.promptChoice = 2
   self.hover = nil
   self.particles = Particles.new(700)
+  self.cloudFx = CloudFx.new()
   self.hitMarker = 0
   self.hitX, self.hitY = 0, 0
   self.flash = 0
@@ -587,6 +589,8 @@ function NetMatch:update(dt)
   end
   self.particles:update(dt)
   self:updateVisuals(dt)
+  self.cloudFx:update(dt, self.localPlane, self.clouds, self.particles,
+    self.mode == "demo")
   self:updateCamera(dt)
   if self.localPlane and self.localPlane.alive and not self.spectator then
     local seen = {}
@@ -896,6 +900,7 @@ function NetMatch:drawWorld()
   for _, cloud in ipairs(self.clouds.list) do
     Sprites.drawCloudCopies(cloud, 1)
   end
+  self.particles:drawCloud()
 
   if playerHidden and self.localPlane then
     local ghostColors = (self.teamMode and self.localTeam == 2)

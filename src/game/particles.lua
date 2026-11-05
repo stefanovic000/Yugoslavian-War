@@ -107,6 +107,17 @@ function Particles:engineTrail(x, y, vx, vy, strength)
     nowColor(0.55, 0.58, 0.58))
 end
 
+function Particles:cloudWisp(x, y, vx, vy, size, life, color)
+  local p = self:acquire()
+  p.kind = "cloud"
+  p.x, p.y, p.vx, p.vy = x, y, vx, vy
+  p.size, p.life, p.maxLife = size, life, life
+  p.color = color or nowColor(0.90, 0.93, 0.92)
+  p.grow = size * 0.9
+  p.drag = 1.8
+  self:add(p)
+end
+
 function Particles:update(dt)
   local items = self.items
   local i = 1
@@ -148,6 +159,22 @@ function Particles:draw()
       love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.8 * t)
       love.graphics.setLineWidth(1)
       love.graphics.circle("line", p.x, p.y, p.size, 16)
+    elseif p.kind == "cloud" then
+      -- Cloud wisps are drawn after the cloud layer so they read on top.
+    end
+  end
+  love.graphics.pop()
+end
+
+function Particles:drawCloud()
+  love.graphics.push("all")
+  for _, p in ipairs(self.items) do
+    if p.kind == "cloud" then
+      local t = p.life / p.maxLife
+      love.graphics.setColor(p.color[1], p.color[2], p.color[3], 0.26 * t)
+      love.graphics.circle("fill", p.x, p.y, p.size, 10)
+      love.graphics.setColor(1, 1, 1, 0.14 * t)
+      love.graphics.circle("fill", p.x, p.y, p.size * 0.55, 8)
     end
   end
   love.graphics.pop()

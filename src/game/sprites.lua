@@ -167,8 +167,9 @@ function Sprites.drawCloud(cloud, ox, oy, alphaMul)
   local a = (cloud.alpha or 0.9) * (alphaMul or 1)
   local image = cloudImages[cloud.variant or 1]
   local x, y = cloud.x + ox, cloud.y + oy
-  local sx = cloud.r * 2.0 / 96
-  local sy = cloud.r * 1.3 / 56
+  local pulse = cloud.fxPulse or 0
+  local sx = cloud.r * 2.0 / 96 * (1 + pulse * 0.035)
+  local sy = cloud.r * 1.3 / 56 * (1 + pulse * 0.02)
 
   love.graphics.setColor(0.04, 0.08, 0.09, a * 0.35)
   love.graphics.draw(image, x + 3, y + 4, 0, sx, sy, 48, 28)
