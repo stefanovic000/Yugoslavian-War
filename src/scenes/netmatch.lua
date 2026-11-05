@@ -657,9 +657,6 @@ function NetMatch:drawHighlight(x, y, w, h)
   end
   love.graphics.pop()
   love.graphics.setScissor()
-  UI.set(UI.C.orange)
-  love.graphics.setFont(UI.font(7, true))
-  love.graphics.print("BEST STRIKE", x + 4, y + 4)
   love.graphics.pop()
 end
 
@@ -1562,13 +1559,16 @@ function NetMatch:drawHud()
     else
       label = name:upper() .. " WON THE WAR"
     end
-    love.graphics.printf(label, 0, 142, 640, "center")
+    love.graphics.printf(label, 0, 20, 640, "center")
     UI.set(UI.C.cream2)
     love.graphics.setFont(UI.font(8))
     local mvpName = self.mvp and (self.names[self.mvp] or ("P" .. tostring(self.mvp))) or "NOBODY"
-    love.graphics.printf("MVP: " .. mvpName:upper(), 0, 168, 640, "center")
-    love.graphics.printf("RETURNING TO LOBBY", 0, 190, 640, "center")
-    self:drawHighlight(384, 204, 244, 138)
+    love.graphics.printf("MVP: " .. mvpName:upper(), 0, 44, 640, "center")
+    UI.set(UI.C.orange)
+    love.graphics.setFont(UI.font(7, true))
+    love.graphics.printf("HIGHLIGHT", 0, 54, 640, "center")
+    self:drawHighlight(140, 64, 360, 200)
+    love.graphics.printf("RETURNING TO LOBBY", 0, 286, 640, "center")
   end
 end
 
