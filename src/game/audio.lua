@@ -93,10 +93,14 @@ function Audio.init()
     end)
 
     Audio.sources.engine = build(1.0, function(t)
-      local trem = 0.85 + 0.15 * math.sin(2 * math.pi * 7 * t)
-      return (math.sin(2 * math.pi * 55 * t) * 0.36
-        + math.sin(2 * math.pi * 110 * t) * 0.18
-        + math.sin(2 * math.pi * 165 * t) * 0.08) * trem * 0.18
+      local trem = 0.82 + 0.18 * math.sin(2 * math.pi * 9 * t)
+      -- Keep a low rumble, but add enough midrange that laptop speakers and
+      -- small headsets can actually reproduce the engine cue.
+      return (math.sin(2 * math.pi * 55 * t) * 0.20
+        + math.sin(2 * math.pi * 110 * t) * 0.20
+        + math.sin(2 * math.pi * 220 * t) * 0.14
+        + math.sin(2 * math.pi * 330 * t) * 0.08
+        + math.sin(2 * math.pi * 440 * t) * 0.04) * trem * 0.24
     end)
     Audio.sources.engine:setLooping(true)
   end)
@@ -147,7 +151,7 @@ function Audio.setEngine(id, dx, dy, throttle, active, occluded)
     Audio.engines[id] = e
   end
   local dist = math.sqrt(dx * dx + dy * dy)
-  local vol = clamp(1 - dist / 700, 0.015, 0.16)
+  local vol = clamp(0.05 + (1 - dist / 700) * 0.28, 0.04, 0.32)
   if occluded then vol = vol * 0.55 end
   e.src:setVolume(clamp(vol * gain(), 0, 1))
   e.src:setPitch(0.70 + clamp(throttle or 0.6, 0, 1) * 0.50)
