@@ -772,4 +772,25 @@ cases[#cases + 1] = {
   end,
 }
 
+cases[#cases + 1] = {
+  name = "damage debris falls and fades",
+  fn = function()
+    local Particles = require("src.game.particles")
+    local p = Particles.new(10)
+    p:debris(100, 100, 30, 0, 2, 0.5, { 0.4, 0.4, 0.35 })
+    local y = p.items[1].y
+    for _ = 1, 10 do p:update(0.016) end
+    assert(p.items[1] and p.items[1].kind == "debris")
+    assert(p.items[1].y > y, "debris did not fall")
+  end,
+}
+
+cases[#cases + 1] = {
+  name = "network match scene loads",
+  fn = function()
+    local ok, err = pcall(require, "src.scenes.netmatch")
+    assert(ok, tostring(err))
+  end,
+}
+
 return cases

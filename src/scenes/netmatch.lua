@@ -87,6 +87,7 @@ function NetMatch:enter(client, startMsg)
   self.hover = nil
   self.particles = Particles.new(700)
   self.cloudFx = CloudFx.new()
+  self.debrisSeen = {}
   self.hitMarker = 0
   self.hitX, self.hitY = 0, 0
   self.flash = 0
@@ -226,6 +227,85 @@ function NetMatch:handleMessage(msg)
   end
 end
 
+local function debrisColor(part)
+  if part == "wing" then return { 0.38, 0.42, 0.28 }
+  elseif part == "tail" then return { 0.24, 0.27, 0.20 }
+  elseif part == "guns" then return { 0.42, 0.42, 0.38 }
+  elseif part == "engine" then return { 0.30, 0.24, 0.18 }
+  end
+  return { 0.34, 0.34, 0.30 }
+end
+
+function NetMatch:damageVisible(id)
+  if id == self.selfId or self.spectator then return true end
+  local v = self.visuals and self.visuals[id]
+  if not v then return false end
+  if v.seenBy then
+    for _, viewer in ipairs(v.seenBy) do
+      if viewer == self.selfId then return true end
+    end
+    return false
+  end
+  return not self.localPlane or Vision.canSee(self.localPlane, v, self.clouds)
+end
+
+function NetMatch:debrisDirection(e)
+  local owner = self.visuals[e.owner]
+  local victim = self.visuals[e.victim]
+  if owner and victim then
+    return math.atan2(victim.y - owner.y, victim.x - owner.x)
+  end
+  return love.math.random() * math.pi * 2
+end
+
+function NetMatch:throwDebris(e, part, count, speedMin, speedMax, sizeMin, sizeMax)
+  local dir = self:debrisDirection(e)
+  local color = debrisColor(part)
+  for _ = 1, count do
+    local a = dir + (love.math.random() - 0.5) * 2.0
+    local sp = speedMin + love.math.random() * (speedMax - speedMin)
+    self.particles:debris(e.x, e.y,
+      math.cos(a) * sp, math.sin(a) * sp,
+      sizeMin + love.math.random() * (sizeMax - sizeMin),
+      0.35 + love.math.random() * 0.75, color)
+  end
+end
+
+function NetMatch:spawnDamageDebris(e)
+  if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
+  local part = e.part or "engine"
+  local v = self.visuals[e.victim]
+  local hp = v and v.parts and v.parts[part] or 60
+
+  -- A couple of chips on every hit.
+  self:throwDebris(e, part, 2, 35, 90, 0.7, 1.7)
+  if part == "guns" then
+    self.particles:spark(e.x, e.y, love.math.random() * math.pi * 2, 90, 0.12,
+      { 1, 0.78, 0.38 })
+  end
+
+  local seen = self.debrisSeen[e.victim] or {}
+  self.debrisSeen[e.victim] = seen
+  local prev = seen[part] or 60
+  local band = hp <= 0 and 0 or (hp <= 22 and 22 or (hp <= 45 and 45 or 60))
+  if band < prev then
+    seen[part] = band
+    if band > 0 then
+      self:throwDebris(e, part, 8, 55, 165, 1.4, 4.2)
+      self.particles:smoke(e.x, e.y, (love.math.random() - 0.5) * 20, -15,
+        4, 0.55, { 0.55, 0.55, 0.52 })
+    end
+  elseif band > prev then
+    seen[part] = band
+  end
+end
+
+function NetMatch:spawnKillDebris(e)
+  if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
+  self:throwDebris(e, "wing", 8, 70, 190, 1.5, 4.5)
+  self:throwDebris(e, "engine", 6, 55, 150, 1.2, 3.5)
+end
+
 function NetMatch:processEvents(events)
   for _, e in ipairs(events or {}) do
     if e.type == "shot" then
@@ -297,10 +377,12 @@ function NetMatch:processEvents(events)
         self.shake = math.max(self.shake, 6)
         self.partFlash[e.part] = 0.30
       end
+      self:spawnDamageDebris(e)
     elseif e.type == "kill" then
       Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
       self.particles:explosion(e.x, e.y, color, e.victim == self.selfId and 1.5 or 1)
+      self:spawnKillDebris(e)
       if e.victim == self.selfId then
         self.shake = math.max(self.shake, 9)
         self.flash = 0.55
@@ -902,6 +984,7 @@ function NetMatch:drawWorld()
   end
   self.cloudFx:drawWake()
   self.particles:drawCloud()
+  self.particles:drawDebris()
 
   if playerHidden and self.localPlane then
     local ghostColors = (self.teamMode and self.localTeam == 2)

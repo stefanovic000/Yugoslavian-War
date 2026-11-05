@@ -121,6 +121,20 @@ function Particles:cloudWisp(x, y, vx, vy, size, life, color)
   self:add(p)
 end
 
+function Particles:debris(x, y, vx, vy, size, life, color)
+  local p = self:acquire()
+  p.kind = "debris"
+  p.x, p.y, p.vx, p.vy = x, y, vx, vy
+  p.size, p.life, p.maxLife = size, life, life
+  p.color = color or nowColor(0.34, 0.34, 0.30)
+  p.grow = 0
+  p.drag = 0.55
+  p.gravity = 135
+  p.rot = love.math.random() * math.pi * 2
+  p.spin = (love.math.random() - 0.5) * 9
+  self:add(p)
+end
+
 function Particles:update(dt)
   local items = self.items
   local i = 1
@@ -139,6 +153,10 @@ function Particles:update(dt)
       if p.kind == "cloud" and p.curl then
         local c, s = math.cos(p.curl * dt), math.sin(p.curl * dt)
         p.vx, p.vy = p.vx * c - p.vy * s, p.vx * s + p.vy * c
+        p.rot = (p.rot or 0) + (p.spin or 0) * dt
+      end
+      if p.kind == "debris" then
+        p.vy = p.vy + (p.gravity or 0) * dt
         p.rot = (p.rot or 0) + (p.spin or 0) * dt
       end
       p.x = p.x + p.vx * dt
@@ -168,7 +186,9 @@ function Particles:draw()
       love.graphics.setLineWidth(1)
       love.graphics.circle("line", p.x, p.y, p.size, 16)
     elseif p.kind == "cloud" then
-      -- Cloud wisps are drawn after the cloud layer so they read on top.
+      -- Cloud wisps and debris are drawn above the cloud layer.
+    elseif p.kind == "debris" then
+      -- Drawn in the debris pass after clouds.
     end
   end
   love.graphics.pop()
@@ -211,6 +231,24 @@ end
 
 function Particles:count()
   return #self.items
+end
+
+function Particles:drawDebris()
+  love.graphics.push("all")
+  for _, p in ipairs(self.items) do
+    if p.kind == "debris" then
+      local t = p.life / p.maxLife
+      love.graphics.push()
+      love.graphics.translate(p.x, p.y)
+      love.graphics.rotate(p.rot or 0)
+      love.graphics.setColor(p.color[1], p.color[2], p.color[3], math.min(1, t * 1.5))
+      love.graphics.rectangle("fill", -p.size, -p.size * 0.36, p.size * 2, p.size * 0.72)
+      love.graphics.setColor(1, 1, 1, 0.18 * t)
+      love.graphics.rectangle("fill", -p.size * 0.7, -p.size * 0.18, p.size * 1.1, p.size * 0.25)
+      love.graphics.pop()
+    end
+  end
+  love.graphics.pop()
 end
 
 return Particles
