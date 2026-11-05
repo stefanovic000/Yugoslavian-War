@@ -82,7 +82,8 @@ function SettingsScene:focusField(index)
 end
 
 function SettingsScene:setSlider(name, mx)
-  local v = math.max(0, math.min(1, (mx - 86) / 360))
+  local maxValue = self.dragMax or 1
+  local v = math.max(0, math.min(maxValue, (mx - 86) / 360 * maxValue))
   Settings.data[name] = v
 end
 
@@ -233,15 +234,17 @@ function SettingsScene:drawResolution(x, y, hovered)
   love.graphics.rectangle("fill", x, y + 17, 220, 1)
 end
 
-function SettingsScene:drawSlider(x, y, label, key)
+function SettingsScene:drawSlider(x, y, label, key, maxValue)
+  maxValue = maxValue or 1
+  local value = Settings.data[key] or 0
   UI.small(label, x, y - 18, UI.C.cream2, "left")
   UI.set(UI.C.ink3)
   love.graphics.rectangle("fill", x, y, 360, 6)
   UI.set(UI.C.orange)
-  love.graphics.rectangle("fill", x, y, 360 * (Settings.data[key] or 0), 6)
+  love.graphics.rectangle("fill", x, y, 360 * value / maxValue, 6)
   UI.set(UI.C.cream)
-  love.graphics.circle("fill", x + 360 * (Settings.data[key] or 0), y + 3, 4)
-  UI.small(string.format("%d%%", math.floor((Settings.data[key] or 0) * 100)),
+  love.graphics.circle("fill", x + 360 * value / maxValue, y + 3, 4)
+  UI.small(string.format("%d%%", math.floor(value * 100)),
     x, y + 9, UI.C.cream, "right", 360)
 end
 
@@ -295,9 +298,9 @@ end
 function SettingsScene:drawAudio()
   UI.small("MASTER VOLUME", 86, 84, UI.C.orange, "left")
   self:drawSlider(86, 126, "MASTER", "masterVolume")
-  self:drawSlider(86, 186, "EFFECTS + ENGINES", "effectsVolume")
-  UI.small("AUDIO APPLIES TO GUNS, ENGINES, IMPACTS AND EXPLOSIONS.",
-    86, 238, UI.C.cream2, "left", 440)
+  self:drawSlider(86, 186, "GUNS + IMPACTS", "effectsVolume")
+  self:drawSlider(86, 246, "ENGINE", "engineVolume", 2)
+  UI.small("ENGINE GOES UP TO 200%.", 86, 266, UI.C.cream2, "left", 440)
 end
 
 function SettingsScene:draw()
@@ -393,10 +396,16 @@ function SettingsScene:mousepressed(x, y)
   elseif self.tab == 3 then
     if UI.hit(mx, my, 86, 126, 360, 16) then
       self.dragSlider = "masterVolume"
+      self.dragMax = 1
       self:setSlider("masterVolume", mx)
     elseif UI.hit(mx, my, 86, 186, 360, 16) then
       self.dragSlider = "effectsVolume"
+      self.dragMax = 1
       self:setSlider("effectsVolume", mx)
+    elseif UI.hit(mx, my, 86, 246, 360, 16) then
+      self.dragSlider = "engineVolume"
+      self.dragMax = 2
+      self:setSlider("engineVolume", mx)
     end
   end
 
