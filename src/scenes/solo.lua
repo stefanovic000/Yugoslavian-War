@@ -24,6 +24,7 @@ local VisionOverlay = require("src.game.visionoverlay")
 local Audio = require("src.game.audio")
 local Controls = require("src.game.controls")
 local Particles = require("src.game.particles")
+local CloudFx = require("src.game.cloudfx")
 local View = require("src.game.view")
 local UI = require("src.ui.ui")
 local Combat = require("shared.combat")
@@ -75,6 +76,8 @@ function Solo:enter()
   })
   self.aiState = AI.newState()
   self.particles = Particles.new(700)
+  self.cloudFx = CloudFx.new()
+  self.debrisSeen = {}
   self.farClouds = Clouds.new(self.seed + 7, 7, { cluster = false })
 
   -- Keep the initial duel visible without tearing a cloud bank apart.
@@ -198,6 +201,81 @@ function Solo:inputForPlayer(dt)
   return self.input
 end
 
+local function damageColor(part)
+  if part == "wing" then return { 0.46, 0.48, 0.43 } end
+  if part == "tail" then return { 0.34, 0.36, 0.31 } end
+  if part == "guns" then return { 0.54, 0.55, 0.52 } end
+  return { 0.27, 0.25, 0.21 }
+end
+
+function Solo:damageDir(e)
+  local owner = (e.owner == 1) and self.player or self.enemy
+  local victim = (e.victim == 1) and self.player or self.enemy
+  if owner and victim then
+    return math.atan2(victim.y - owner.y, victim.x - owner.x)
+  end
+  return love.math.random() * math.pi * 2
+end
+
+function Solo:partPiece(e, part, count)
+  local victim = (e.victim == 1) and self.player or self.enemy
+  if not victim then return end
+  local points
+  if part == "wing" then points = { -1, 0, -8, 3, -3, 5 }
+  elseif part == "tail" then points = { -1, 0, -7, -5, -3, -1 }
+  elseif part == "guns" then points = { 0, 0, 4, -1, 2, 2 }
+  else points = { 0, 0, 6, -2, 3, 3 } end
+  for _ = 1, count do
+    local a = self:damageDir(e) + (love.math.random() - 0.5) * 1.5
+    local sp = 35 + love.math.random() * 80
+    self.particles:panel(e.x, e.y,
+      math.cos(a) * sp, math.sin(a) * sp - 10,
+      points, damageColor(part), 1.2 + love.math.random() * 0.5,
+      victim.angle + (love.math.random() - 0.5) * 1.2,
+      0.7 + love.math.random() * 0.5)
+  end
+end
+
+function Solo:spawnHitDamage(e)
+  local part = e.part or "engine"
+  local victim = (e.victim == 1) and self.player or self.enemy
+  if not victim then return end
+  local a = self:damageDir(e)
+  for _ = 1, 2 do
+    local ang = a + (love.math.random() - 0.5) * 2
+    local sp = 35 + love.math.random() * 60
+    self.particles:debris(e.x, e.y, math.cos(ang) * sp, math.sin(ang) * sp,
+      0.7 + love.math.random(), 0.35 + love.math.random() * 0.4,
+      damageColor(part))
+  end
+  self.particles:cloudWisp(e.x, e.y,
+    (love.math.random() - 0.5) * 24, (love.math.random() - 0.5) * 24,
+    3 + love.math.random() * 3, 0.28 + love.math.random() * 0.18,
+    { 0.48, 0.50, 0.47 })
+
+  local hp = victim.parts and victim.parts[part] or 60
+  local seen = self.debrisSeen[e.victim] or {}
+  self.debrisSeen[e.victim] = seen
+  local prev = seen[part] or 60
+  local band = hp <= 0 and 0 or (hp <= 22 and 22 or (hp <= 45 and 45 or 60))
+  if band < prev and band > 0 then
+    seen[part] = band
+    self:partPiece(e, part, 2)
+    self.particles:cloudWisp(e.x, e.y, 0, -20,
+      6 + love.math.random() * 5, 0.6, { 0.40, 0.42, 0.39 })
+  elseif band > prev then
+    seen[part] = band
+  end
+end
+
+function Solo:spawnKillDamage(e)
+  self:partPiece(e, "wing", 2)
+  self:partPiece(e, "tail", 2)
+  self:partPiece(e, "engine", 2)
+  self.particles:fireball(e.x, e.y, e.victim == 1 and 1.25 or 1)
+  self.particles:cloudWisp(e.x, e.y, 0, -18, 9, 0.8, { 0.32, 0.31, 0.29 })
+end
+
 function Solo:handleEvents(events)
   for _, e in ipairs(events) do
     if e.type == "shot" then
@@ -226,10 +304,13 @@ function Solo:handleEvents(events)
         self.shake = math.max(self.shake, 6)
         self.partFlash[e.part] = 0.30
       end
+      self:spawnHitDamage(e)
     elseif e.type == "kill" then
       Audio.play("explosion", e.victim == 1 and 0.55 or 0.65)
       local color = e.victim == 1 and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
       self.particles:explosion(e.x, e.y, color, e.victim == 1 and 1.5 or 1.0)
+      self:spawnKillDamage(e)
+      self.sim:addSmokeCloud(e.x, math.min(e.y, C.WORLD.groundY - 70), 1)
       if e.victim == 1 then
         self.playerRespawn = C.PLANE.respawnTime
         self.shake = math.max(self.shake, 9)
@@ -247,6 +328,8 @@ function Solo:handleEvents(events)
     elseif e.type == "crash" then
       Audio.play("explosion", 0.7)
       self.particles:explosion(e.x, e.y, { 0.95, 0.58, 0.25 }, e.victim == 1 and 1.4 or 1)
+      self.particles:fireball(e.x, e.y, 0.85)
+      self.sim:addSmokeCloud(e.x, math.min(e.y, C.WORLD.groundY - 70), 1)
       self.shake = math.max(self.shake, 7)
       if e.victim == 1 then
         self.playerRespawn = C.PLANE.respawnTime
@@ -349,6 +432,7 @@ function Solo:fixedUpdate(dt)
   self:handleEvents(events)
 
   self.particles:update(dt)
+  self.cloudFx:update(dt, self.player, self.sim.clouds, self.particles, true)
 
   if self.player.alive and self.player.parts.engine < 35 and love.math.random() < 0.55 then
     self.particles:smoke(self.player.x, self.player.y,
@@ -510,6 +594,11 @@ function Solo:drawWorld()
   for _, cloud in ipairs(self.sim.clouds.list) do
     Sprites.drawCloudCopies(cloud, 1)
   end
+  self.cloudFx:drawWake()
+  self.particles:drawFire()
+  self.particles:drawCloud()
+  self.particles:drawDebris()
+  self.particles:drawPanels()
 
   if playerHidden then
     Sprites.drawPlaneCopies(self.player, self.uiTime, { colors = Sprites.TEAM.player, alpha = 0.55 })

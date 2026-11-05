@@ -303,7 +303,7 @@ function NetMatch:spawnPartPanel(e, part)
 end
 
 function NetMatch:spawnDamageDebris(e)
-  if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
+  if not e.victim or not self:damageVisible(e.victim) then return end
   local part = e.part or "engine"
   local v = self.visuals[e.victim]
   local hp = v and v.parts and v.parts[part] or 60
@@ -343,7 +343,7 @@ function NetMatch:spawnDamageDebris(e)
 end
 
 function NetMatch:spawnKillDebris(e)
-  if self.mode ~= "demo" or not e.victim or not self:damageVisible(e.victim) then return end
+  if not e.victim or not self:damageVisible(e.victim) then return end
   self:spawnPartPanel(e, "wing")
   self:spawnPartPanel(e, "tail")
   self:spawnPartPanel(e, "guns")
@@ -749,8 +749,7 @@ function NetMatch:update(dt)
   end
   self.particles:update(dt)
   self:updateVisuals(dt)
-  self.cloudFx:update(dt, self.localPlane, self.clouds, self.particles,
-    self.mode == "demo")
+  self.cloudFx:update(dt, self.localPlane, self.clouds, self.particles, true)
   self:updateCamera(dt)
   if self.localPlane and self.localPlane.alive and not self.spectator then
     local seen = {}
@@ -782,7 +781,7 @@ function NetMatch:update(dt)
     end
   end
 
-  if self.mode == "demo" and self.localPlane and self.localPlane.alive then
+  if self.localPlane and self.localPlane.alive then
     self.dmgSmokeTimer = (self.dmgSmokeTimer or 0) - dt
     local p = self.localPlane
     local worst = math.min(p.parts.engine or 60, p.parts.wing or 60, p.parts.tail or 60)
