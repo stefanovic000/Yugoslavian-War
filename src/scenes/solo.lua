@@ -766,7 +766,9 @@ function Solo:drawPause()
       font = UI.font(10, true),
     })
   end
-  UI.small("ESC resume  /  UP DOWN choose  /  ENTER select", 0, 252, UI.C.cream2, "center")
+  love.graphics.setFont(UI.font(7))
+  UI.set(UI.C.cream2)
+  love.graphics.printf("UP/DOWN  ENTER  /  ESC RESUME", 214, 253, 212, "center")
 end
 
 function Solo:draw()
