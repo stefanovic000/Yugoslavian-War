@@ -173,6 +173,12 @@ function Sim:addSmokeCloud(x, y, scale)
   return cloud
 end
 
+function Sim:clearSmokeClouds()
+  for i = #self.clouds.list, 1, -1 do
+    if self.clouds.list[i].smoke then table.remove(self.clouds.list, i) end
+  end
+end
+
 function Sim:step(inputs, dt)
   local events = {}
   self.events = events

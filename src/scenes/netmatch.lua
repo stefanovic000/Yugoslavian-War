@@ -543,9 +543,19 @@ function NetMatch:syncClouds(data)
   self.clouds.list = list
 end
 
+function NetMatch:clearSmokeClouds()
+  if not self.clouds then return end
+  for i = #self.clouds.list, 1, -1 do
+    if self.clouds.list[i].smoke then table.remove(self.clouds.list, i) end
+  end
+end
+
 function NetMatch:onSnapshot(msg)
   self.snapshot = msg
   self.snapRecvAt = love.timer.getTime()
+  if msg.phase == "prep" and self.phase ~= "prep" then
+    self:clearSmokeClouds()
+  end
   self.phase = msg.phase
   self.round = msg.round
   self.timer = msg.timer

@@ -57,4 +57,26 @@ function View.mouse()
   return View.toVirtual(mx, my)
 end
 
+-- Some Windows fullscreen drivers lose the hardware cursor. Draw our own while
+-- fullscreen so the pointer is always visible; windowed mode keeps the normal
+-- OS cursor.
+function View.drawCursor()
+  local full = love.window.getFullscreen()
+  love.mouse.setVisible(not full)
+  if not full then return end
+  local x, y = love.mouse.getPosition()
+  love.graphics.push("all")
+  love.graphics.setColor(0.02, 0.03, 0.04, 0.85)
+  love.graphics.circle("fill", x, y, 4)
+  love.graphics.setColor(0.95, 0.93, 0.78, 1)
+  love.graphics.circle("fill", x, y, 2)
+  love.graphics.setColor(0.95, 0.93, 0.78, 0.9)
+  love.graphics.setLineWidth(1)
+  love.graphics.line(x - 7, y, x - 4, y)
+  love.graphics.line(x + 4, y, x + 7, y)
+  love.graphics.line(x, y - 7, x, y - 4)
+  love.graphics.line(x, y + 4, x, y + 7)
+  love.graphics.pop()
+end
+
 return View

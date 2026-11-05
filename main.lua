@@ -94,6 +94,7 @@ function love.draw()
     App:draw()
     View.finish()
     Debug:draw()
+    View.drawCursor()
     profiler.finishFrame()
   end
 end

@@ -156,6 +156,7 @@ function Match:beginRound()
 end
 
 function Match:startRound(number, withPrep)
+  self.sim:clearSmokeClouds()
   self.round = number
   self.teamKills = { [1] = 0, [2] = 0 }
   self.phase = withPrep and "prep" or "round"
@@ -227,6 +228,7 @@ function Match:queueInput(id, msg)
 end
 
 function Match:finishRound(winner)
+  self.sim:clearSmokeClouds()
   self.roundWinner = winner
   if self.teamMode then
     local team = winner
