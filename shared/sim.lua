@@ -8,6 +8,7 @@ local Flight = require("shared.flight")
 local Combat = require("shared.combat")
 local Clouds = require("shared.clouds")
 local Shapes = require("shared.cloud_shapes")
+local Terrain = require("shared.terrain")
 
 local Sim = {}
 Sim.__index = Sim
@@ -39,7 +40,7 @@ function Sim:addPlane(opts)
   plane.id = opts.id or (#self.planeOrder + 1)
   plane.team = opts.team or plane.id
   plane.x = M.clamp(plane.x, C.WORLD.wallLeft + plane.radius, C.WORLD.wallRight - plane.radius)
-  plane.y = M.clamp(plane.y, plane.radius, C.WORLD.groundY - plane.radius)
+  plane.y = M.clamp(plane.y, plane.radius, Terrain.height(plane.x) - C.PLANE.groundOffset)
   plane.history = { { t = self.time, x = plane.x, y = plane.y, a = plane.angle } }
   self.planes[plane.id] = plane
   self.planeOrder[#self.planeOrder + 1] = plane.id
@@ -191,8 +192,9 @@ function Sim:step(inputs, dt)
       local input = inputs and inputs[id]
       Flight.step(plane, input or plane.lastInput, dt)
       plane.lastInput = input or plane.lastInput
-      if plane.alive and plane.y + plane.radius >= C.WORLD.groundY then
-        plane.y = C.WORLD.groundY - plane.radius
+      local ground = Terrain.height(plane.x)
+      if plane.alive and plane.y + C.PLANE.groundOffset >= ground then
+        plane.y = ground - C.PLANE.groundOffset
         plane.hp = 0
         plane.alive = false
         events[#events + 1] = {
@@ -240,7 +242,7 @@ function Sim:step(inputs, dt)
 
     if b.life <= 0
       or b.x < C.WORLD.wallLeft - 10 or b.x > C.WORLD.wallRight + 10
-      or b.y < -20 or b.y > C.WORLD.groundY + 10 then
+      or b.y < -20 or b.y > Terrain.height(b.x) + 10 then
       b.dead = true
     else
       for _, pid in ipairs(self.planeOrder) do

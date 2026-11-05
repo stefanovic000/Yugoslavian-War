@@ -2,15 +2,15 @@
 -- coordinates; the authoritative simulation kills a plane that touches it.
 
 local C = require("shared.constants")
+local Terrain = require("shared.terrain")
 
 local Ground = {}
 
 local W, H = C.WORLD.w, C.WORLD.h
 local TOP = C.WORLD.groundY
 
-local function ridge(x, base, amp, phase)
-  return base + math.sin(x * 0.035 + phase) * amp
-    + math.sin(x * 0.091 + phase * 2) * amp * 0.35
+local function ridge(x)
+  return Terrain.height(x)
 end
 
 function Ground.draw()
@@ -22,7 +22,7 @@ function Ground.draw()
   local points = { 0, H, 0, TOP }
   for x = 0, W, 8 do
     points[#points + 1] = x
-    points[#points + 1] = math.floor(ridge(x, TOP + 2, 3, 0.3))
+    points[#points + 1] = math.floor(ridge(x))
   end
   points[#points + 1] = W
   points[#points + 1] = H
@@ -32,7 +32,7 @@ function Ground.draw()
   -- a thin dry-grass line and a few stones
   love.graphics.setColor(0.360, 0.350, 0.205, 1)
   for x = 0, W, 8 do
-    local y = math.floor(ridge(x, TOP + 2, 3, 0.3))
+    local y = math.floor(ridge(x))
     love.graphics.rectangle("fill", x, y, 7, 1)
     if math.floor(x / 8) % 7 == 0 then
       love.graphics.rectangle("fill", x + 2, y - 3, 2, 2)

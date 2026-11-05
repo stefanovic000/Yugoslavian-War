@@ -38,6 +38,7 @@ local C = {
   PLANE = {
     length = 34,
     radius = 10.0,
+    groundOffset = 7,
     hp = 120,
     partHp = 60,
     stallSpeed = 68,

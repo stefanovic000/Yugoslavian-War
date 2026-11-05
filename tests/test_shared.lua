@@ -525,8 +525,9 @@ cases[#cases + 1] = {
   name = "touching the ground crashes the plane",
   fn = function()
     local sim = newSim(14)
+    local Terrain = require("shared.terrain")
     local p = sim:addPlane({
-      id = 1, x = 400, y = C.WORLD.groundY - C.PLANE.radius - 1,
+      id = 1, x = 400, y = Terrain.height(400) - C.PLANE.groundOffset - 1,
       angle = math.pi / 2, speed = 100, throttle = 0.7,
     })
     local crash = false
