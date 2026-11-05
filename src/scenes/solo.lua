@@ -446,6 +446,17 @@ function Solo:fixedUpdate(dt)
 
   self.particles:update(dt)
   self.cloudFx:update(dt, self.player, self.sim.clouds, self.particles, true)
+  self.dustTimer = (self.dustTimer or 0) - dt
+  if self.dustTimer <= 0 then
+    self.dustTimer = 0.09
+    for _, p in ipairs({ self.player, self.enemy }) do
+      if p.alive and p.y > C.WORLD.groundY - 58 then
+        self.particles:cloudWisp(p.x, C.WORLD.groundY - 2,
+          (love.math.random() - 0.5) * 30, -8 - love.math.random() * 16,
+          3 + love.math.random() * 4, 0.45, { 0.50, 0.44, 0.31 })
+      end
+    end
+  end
 
   if self.player.alive and self.player.parts.engine < 35 and love.math.random() < 0.55 then
     self.particles:smoke(self.player.x, self.player.y,

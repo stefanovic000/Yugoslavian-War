@@ -107,6 +107,12 @@ function NetMatch:enter(client, startMsg)
   self.bannerTimer = 0
   self.bannerDuration = 0
   self.champion = nil
+  self.bestReplay = nil
+  self.bestReplayScore = 0
+  self.replayBuffer = {}
+  self.replayHits = {}
+  self.highlight = nil
+  self.replayClock = 0
   self.roomState = nil
   self.phase = "round"
   self.round = 1
@@ -454,6 +460,7 @@ function NetMatch:processEvents(events)
         self.partFlash[e.part] = 0.30
       end
       self:spawnDamageDebris(e)
+      if e.owner == self.selfId then self:noteHighlightHit(e) end
     elseif e.type == "kill" then
       Audio.play("explosion", e.victim == self.selfId and 0.55 or 0.4)
       local color = e.victim == self.selfId and { 0.45, 0.85, 1 } or { 1, 0.45, 0.25 }
@@ -532,8 +539,99 @@ function NetMatch:processEvents(events)
       self.teamMode = e.teamMode == true
       self.phase = "match_end"
       self.timer = 3
+      self.highlight = self.bestReplay
+      self.replayClock = 0
     end
   end
+end
+
+function NetMatch:recordReplayFrame(msg)
+  local frame = { t = self.uiTime, planes = {}, bullets = {}, clouds = {}, focusX = 500, focusY = 220 }
+  for _, sp in ipairs(msg.planes or {}) do
+    frame.planes[#frame.planes + 1] = {
+      id = sp.id, x = sp.x, y = sp.y, a = sp.a, alive = sp.alive,
+      team = sp.team, planeType = sp.planeType, hp = sp.hp,
+    }
+  end
+  for _, b in ipairs(msg.bullets or {}) do
+    frame.bullets[#frame.bullets + 1] = { x = b.x, y = b.y, vx = b.vx, vy = b.vy, team = b.team }
+  end
+  for _, c in ipairs(self.clouds.list) do
+    frame.clouds[#frame.clouds + 1] = { x = c.x, y = c.y, r = c.r, smoke = c.smoke }
+  end
+  local p = self.localPlane
+  if p then frame.focusX, frame.focusY = p.x, p.y end
+  self.replayBuffer[#self.replayBuffer + 1] = frame
+  while #self.replayBuffer > 1 and self.uiTime - self.replayBuffer[1].t > 4 do
+    table.remove(self.replayBuffer, 1)
+  end
+end
+
+function NetMatch:noteHighlightHit(e)
+  self.replayHits[#self.replayHits + 1] = { t = self.uiTime, damage = e.damage or 0 }
+  while #self.replayHits > 1 and self.uiTime - self.replayHits[1].t > 2.5 do
+    table.remove(self.replayHits, 1)
+  end
+  local score = 0
+  for _, h in ipairs(self.replayHits) do score = score + h.damage end
+  score = score + #self.replayHits * 5
+  if score > self.bestReplayScore and #self.replayBuffer >= 12 then
+    self.bestReplayScore = score
+    self.bestReplay = {}
+    for i, frame in ipairs(self.replayBuffer) do self.bestReplay[i] = frame end
+  end
+end
+
+function NetMatch:drawHighlight(x, y, w, h)
+  love.graphics.push("all")
+  love.graphics.setScissor(x, y, w, h)
+  love.graphics.setColor(0.012, 0.02, 0.025, 1)
+  love.graphics.rectangle("fill", x, y, w, h)
+  local frames = self.highlight
+  if not frames or #frames == 0 then
+    UI.set(UI.C.cream2)
+    UI.small("NO HIGHLIGHT", x, y + h * 0.5 - 4, UI.C.cream2, "center", w)
+    love.graphics.setScissor()
+    love.graphics.pop()
+    return
+  end
+  local progress = math.min(0.999, (self.replayClock or 0) / 2.6)
+  local frame = frames[math.max(1, math.floor(progress * #frames) + 1)]
+  local sx, sy = w / 300, h / 170
+  local s = math.min(sx, sy)
+  local fx, fy = frame.focusX or 500, frame.focusY or 220
+  love.graphics.setColor(0.43, 0.62, 0.72, 1)
+  love.graphics.rectangle("fill", x, y, w, h)
+  love.graphics.push()
+  love.graphics.translate(x + w * 0.5, y + h * 0.5)
+  love.graphics.scale(s, s)
+  love.graphics.translate(-fx, -fy)
+  love.graphics.setColor(0.20, 0.24, 0.19, 1)
+  love.graphics.rectangle("fill", -400, C.WORLD.groundY, 1800, 120)
+  for _, c in ipairs(frame.clouds or {}) do
+    love.graphics.setColor(c.smoke and 0.24 or 0.86, c.smoke and 0.22 or 0.88,
+      c.smoke and 0.20 or 0.86, 0.32)
+    love.graphics.circle("fill", c.x, c.y, c.r or 36, 12)
+  end
+  for _, b in ipairs(frame.bullets or {}) do
+    love.graphics.setColor(1, 0.82, 0.35, 0.9)
+    love.graphics.line(b.x, b.y, b.x - (b.vx or 0) * 0.035, b.y - (b.vy or 0) * 0.035)
+  end
+  for _, p in ipairs(frame.planes or {}) do
+    if p.alive then
+      local spec = Aircraft.get(p.planeType)
+      local plane = { x = p.x, y = p.y, angle = p.a, team = p.team,
+        planeType = p.planeType, spec = spec, parts = { engine = 60, wing = 60, tail = 60, guns = 60 } }
+      local colors = (p.team == 1) and Sprites.TEAM.player or Sprites.TEAM.enemy
+      Sprites.drawPlane(plane, self.uiTime, { colors = colors })
+    end
+  end
+  love.graphics.pop()
+  love.graphics.setScissor()
+  UI.set(UI.C.orange)
+  love.graphics.setFont(UI.font(7, true))
+  love.graphics.print("BEST STRIKE", x + 4, y + 4)
+  love.graphics.pop()
 end
 
 function NetMatch:syncClouds(data)
@@ -665,6 +763,7 @@ function NetMatch:onSnapshot(msg)
   end
 
   self:processEvents(msg.events)
+  self:recordReplayFrame(msg)
 end
 
 function NetMatch:updateVisuals(dt)
@@ -763,6 +862,7 @@ function NetMatch:update(dt)
 
   self.uiTime = self.uiTime + dt
   self.chatTimer = math.max(0, (self.chatTimer or 0) - dt)
+  self.replayClock = (self.replayClock or 0) + dt
   self.bannerTimer = math.max(0, self.bannerTimer - dt)
   self.noticeTimer = math.max(0, self.noticeTimer - dt)
   self.hintTimer = math.max(0, self.hintTimer - dt)
@@ -789,6 +889,19 @@ function NetMatch:update(dt)
   self.particles:update(dt)
   self:updateVisuals(dt)
   self.cloudFx:update(dt, self.localPlane, self.clouds, self.particles, true)
+  self.dustTimer = self.dustTimer or {}
+  for id, v in pairs(self.visuals) do
+    if v.alive and v.y > C.WORLD.groundY - 58 then
+      self.dustTimer[id] = (self.dustTimer[id] or 0) - dt
+      if self.dustTimer[id] <= 0 then
+        self.dustTimer[id] = 0.09
+        self.particles:cloudWisp(v.x, C.WORLD.groundY - 2,
+          (love.math.random() - 0.5) * 30, -8 - love.math.random() * 16,
+          3 + love.math.random() * 4, 0.4 + love.math.random() * 0.25,
+          { 0.50, 0.44, 0.31 })
+      end
+    end
+  end
   self:updateCamera(dt)
   if self.localPlane and self.localPlane.alive and not self.spectator then
     local seen = {}
@@ -1412,6 +1525,7 @@ function NetMatch:drawHud()
     local mvpName = self.mvp and (self.names[self.mvp] or ("P" .. tostring(self.mvp))) or "NOBODY"
     love.graphics.printf("MVP: " .. mvpName:upper(), 0, 168, 640, "center")
     love.graphics.printf("RETURNING TO LOBBY", 0, 190, 640, "center")
+    self:drawHighlight(400, 54, 210, 118)
   end
 end
 
