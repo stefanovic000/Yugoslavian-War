@@ -107,7 +107,11 @@ function Server:accept()
 
     local ip, port = sock:getpeername()
     ip = normalizeIp(ip)
-    if #self.clientOrder >= self.maxClients or (self.ipCounts[ip] or 0) >= MAX_CLIENTS_PER_IP then
+    -- The web gateway connects from loopback and forwards the real browser IP
+    -- in a trusted proxy preamble before hello.
+    local loopback = ip == "127.0.0.1" or ip == "::1"
+    local ipCap = loopback and math.huge or MAX_CLIENTS_PER_IP
+    if #self.clientOrder >= self.maxClients or (self.ipCounts[ip] or 0) >= ipCap then
       pcall(sock.close, sock)
       self:log("reject connection from %s (cap)", ip)
     else
@@ -237,6 +241,26 @@ function Server:handleLine(client, line)
     client.violations = client.violations + 1
     if client.violations > 10 then
       self:disconnect(client, "malformed messages")
+    end
+    return
+  end
+
+  -- Trusted loopback gateway preamble. Direct public clients cannot spoof
+  -- this because their peer address is not loopback.
+  if msg.type == "proxy" then
+    local loopback = client.ip == "127.0.0.1" or client.ip == "::1"
+    if loopback and not client.hello and not client.proxySeen then
+      client.proxySeen = true
+      local realIp = normalizeIp(tostring(msg.ip or ""))
+      if realIp ~= "" then
+        local old = client.ip
+        self.ipCounts[old] = math.max(0, (self.ipCounts[old] or 1) - 1)
+        client.ip = realIp
+        self.ipCounts[realIp] = (self.ipCounts[realIp] or 0) + 1
+        if self.ipCounts[realIp] > MAX_CLIENTS_PER_IP then
+          self:disconnect(client, "too many connections from forwarded IP")
+        end
+      end
     end
     return
   end

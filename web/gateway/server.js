@@ -50,6 +50,11 @@ wss.on("connection", (ws, req) => {
   const tcp = net.createConnection({ host: GAME_HOST, port: GAME_PORT });
   tcp.setNoDelay(true);
 
+  // Must be the first line the game server sees. It is trusted only because
+  // the game server accepts it from loopback.
+  const realIp = forwarded || req.socket.remoteAddress || "127.0.0.1";
+  tcp.write(JSON.stringify({ type: "proxy", ip: realIp }) + "\n");
+
   let inbuf = "";
   let closed = false;
   let lastSeen = Date.now();

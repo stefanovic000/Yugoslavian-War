@@ -7,7 +7,9 @@ yugowar.stef000.dev {
 
 	# WebSocket gateway. Caddy handles the Upgrade automatically.
 	handle /ws* {
-		reverse_proxy 127.0.0.1:9001
+		reverse_proxy 127.0.0.1:9001 {
+			header_up X-Forwarded-For {remote_host}
+		}
 	}
 
 	# Static love.js player.
