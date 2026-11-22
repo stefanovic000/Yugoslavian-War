@@ -1,0 +1,29 @@
+[Unit]
+Description=Yugoslavian War WebSocket gateway
+After=network-online.target yugoslavian-war.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/yugoslavian-war-gateway
+Environment=GAME_HOST=127.0.0.1
+Environment=GAME_PORT=7777
+Environment=GATEWAY_HOST=127.0.0.1
+Environment=GATEWAY_PORT=9001
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=027
+
+[Install]
+WantedBy=multi-user.target

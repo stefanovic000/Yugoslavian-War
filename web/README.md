@@ -10,9 +10,14 @@ This is intentionally **desktop browser only**. It does not include the touch UI
 ```text
 web/
   build.ps1            builds build/web and downloads love.js
-  site/template.html   browser entry page
+  site/
+    template.html      browser entry page
+    bridge.js          WebSocket/FS bridge for love.js
   gateway/             WebSocket -> TCP bridge
-  ops/Caddyfile.example
+  ops/
+    Caddyfile.example
+    DEPLOY.md
+    yugoslavian-war-gateway.service
 ```
 
 ## Build the browser client
@@ -76,8 +81,9 @@ should listen on loopback.
 - [x] love.js build pipeline
 - [x] static browser entry
 - [x] WebSocket/TCP gateway
-- [x] Caddy reverse-proxy configuration
-- [ ] browser WebSocket transport in the Lua client
+- [x] Caddy reverse-proxy configuration for `yugowar.stef000.dev`
+- [x] browser `WebSocket` bridge (print/FS bridge for love.js)
 - [ ] IndexedDB settings/audio unlock
 - [ ] tab visibility / reconnect
 - [ ] client IP forwarding in the Lua server
+- [ ] end-to-end browser match test

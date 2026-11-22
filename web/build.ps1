@@ -47,6 +47,7 @@ print("wrote", out)
 '@ | & $py.Source - $root $love
 
 Copy-Item (Join-Path $PSScriptRoot "site\template.html") (Join-Path $out "index.html") -Force
+Copy-Item (Join-Path $PSScriptRoot "site\bridge.js") (Join-Path $out "bridge.js") -Force
 
 # Simple cache-buster marker so deployments do not reuse an old package.
 $stamp = [DateTime]::UtcNow.ToString("yyyyMMddHHmmss")

@@ -1,7 +1,7 @@
-# Replace game.example.com and the root path.
-# Public ports: 80/443 only. The gateway and Lua server stay on loopback.
+# DNS: yugowar.stef000.dev -> this VPS.
+# Public ports: 80/443. Gateway and Lua server stay on loopback.
 
-game.example.com {
+yugowar.stef000.dev {
 	root * /srv/yugoslavian-war-web
 	encode zstd gzip
 
@@ -22,7 +22,7 @@ game.example.com {
 	header {
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Embedder-Policy "require-corp"
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://game.example.com; worker-src 'self' blob:"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://yugowar.stef000.dev; worker-src 'self' blob:"
 		Referrer-Policy "no-referrer"
 		X-Content-Type-Options "nosniff"
 	}

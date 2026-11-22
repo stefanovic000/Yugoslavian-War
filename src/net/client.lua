@@ -2,9 +2,11 @@
 -- Non-blocking TCP/JSON client. One connection per game session; scenes read
 -- messages from a queue.
 
-local socket = require("socket")
 local json = require("lib.json")
 local C = require("shared.constants")
+local IS_WEB = love.system.getOS() == "Web"
+local socket = not IS_WEB and require("socket") or nil
+local WebTransport = IS_WEB and require("src.net.webtransport") or nil
 
 local Client = {}
 Client.__index = Client
@@ -15,6 +17,7 @@ local CONNECT_TIMEOUT = 6
 local IDLE_TIMEOUT = 20
 
 local function now()
+  if IS_WEB then return love.timer.getTime() end
   return socket.gettime()
 end
 
@@ -42,6 +45,11 @@ end
 
 function Client:send(message)
   if self.status ~= "connected" and self.status ~= "connecting" then return false end
+  if self.web then
+    local ok, encoded = pcall(json.encode, message)
+    if not ok then return false end
+    return self.web:send(encoded)
+  end
   if not self.sock then return false end
   local ok, encoded = pcall(json.encode, message)
   if not ok then return false end
@@ -64,6 +72,12 @@ function Client:connect(host, port, name, aircraft)
   self.messages = {}
   self.buffer, self.outbox = "", ""
   self.errorMessage = nil
+
+  if IS_WEB then
+    self.web = WebTransport.new()
+    self.sock = nil
+    return true
+  end
 
   local sock, err = socket.tcp()
   if not sock then
@@ -104,6 +118,28 @@ function Client:flush()
   end
 end
 
+function Client:handleLine(line)
+  if line == "" then return end
+  if #line > 65536 then
+    self:close("Invalid server data.")
+    return
+  end
+  local ok, msg = pcall(json.decode, line)
+  if ok and type(msg) == "table" and type(msg.type) == "string" then
+    if msg.type == "welcome" then
+      self.selfId = msg.selfId
+      self.name = msg.name or self.name
+      self.serverVersion = msg.version
+    elseif msg.type == "pong" and self.pingAt then
+      local sample = math.max(0, math.min(0.3, now() - self.pingAt))
+      self.jitter = self.rtt > 0 and math.abs(sample - self.rtt) or 0
+      self.rtt = self.rtt > 0 and (self.rtt * 0.75 + sample * 0.25) or sample
+      self.pingAt = nil
+    end
+    self.messages[#self.messages + 1] = msg
+  end
+end
+
 function Client:read()
   if not self.sock then return end
   local data, err, partial = self.sock:receive(4096)
@@ -131,26 +167,8 @@ function Client:read()
     if not nl then break end
     local line = self.buffer:sub(1, nl - 1)
     self.buffer = self.buffer:sub(nl + 1)
-    if #line > 65536 then
-      self:close("Invalid server data.")
-      return
-    end
-    if line ~= "" then
-      local ok, msg = pcall(json.decode, line)
-      if ok and type(msg) == "table" and type(msg.type) == "string" then
-        if msg.type == "welcome" then
-          self.selfId = msg.selfId
-          self.name = msg.name or self.name
-          self.serverVersion = msg.version
-        elseif msg.type == "pong" and self.pingAt then
-          local sample = math.max(0, math.min(0.3, now() - self.pingAt))
-          self.jitter = self.rtt > 0 and math.abs(sample - self.rtt) or 0
-          self.rtt = self.rtt > 0 and (self.rtt * 0.75 + sample * 0.25) or sample
-          self.pingAt = nil
-        end
-        self.messages[#self.messages + 1] = msg
-      end
-    end
+    self:handleLine(line)
+    if self.status == "closed" then return end
   end
 end
 
@@ -160,6 +178,38 @@ function Client:update(dt)
   end
 
   local t = now()
+
+  if self.web then
+    self.web:update()
+    if self.web.state == "error" then
+      self:close("WebSocket connection error.")
+      return
+    elseif self.web.state == "closed" then
+      self:close("Server closed the connection.")
+      return
+    end
+    if self.web.state == "connected" and self.status == "connecting" then
+      self:connected()
+    end
+    for _, line in ipairs(self.web:takeLines()) do
+      self:handleLine(line)
+      if self.status == "closed" then return end
+    end
+    if self.status == "connected" then
+      self.lastPing = self.lastPing or 0
+      if t - self.lastPing > 2 then
+        self.lastPing = t
+        self.pingAt = t
+        self:send({ type = "ping", t = t })
+      end
+      if t - self.lastRecv > IDLE_TIMEOUT then
+        self:close("Server timed out.")
+      end
+    elseif t - self.connectingAt > CONNECT_TIMEOUT then
+      self:close("Connection timed out.")
+    end
+    return
+  end
 
   if self.status == "connecting" then
     if not self.sock then return end
@@ -206,6 +256,10 @@ function Client:takeMessages()
 end
 
 function Client:close(reason)
+  if self.web then
+    pcall(self.web.close, self.web)
+    self.web = nil
+  end
   if self.sock then
     pcall(self.sock.close, self.sock)
   end

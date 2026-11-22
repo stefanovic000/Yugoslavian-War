@@ -61,6 +61,10 @@ end
 -- fullscreen so the pointer is always visible; windowed mode keeps the normal
 -- OS cursor.
 function View.drawCursor()
+  if love.system.getOS() == "Web" then
+    love.mouse.setVisible(true)
+    return
+  end
   local full = love.window.getFullscreen()
   love.mouse.setVisible(not full)
   if not full then return end
