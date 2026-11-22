@@ -9,11 +9,10 @@ This is intentionally **desktop browser only**. It does not include the touch UI
 
 ```text
 web/
-  build.ps1            builds public/game.love and downloads love.js
-  template.html        browser entry page
-  public/              generated output, served by Caddy
-  gateway/             WebSocket -> TCP bridge for the Lua server
-  Caddyfile            TLS, static files, /ws reverse proxy
+  build.ps1            builds build/web and downloads love.js
+  site/template.html   browser entry page
+  gateway/             WebSocket -> TCP bridge
+  ops/Caddyfile.example
 ```
 
 ## Build the browser client
@@ -24,7 +23,7 @@ From the repository root:
 powershell -ExecutionPolicy Bypass -File web/build.ps1
 ```
 
-Then serve `web/public` over HTTPS. Do not open `index.html` from disk:
+Then serve `build/web` over HTTPS. Do not open `index.html` from disk:
 love.js will not run from `file://`.
 
 ## Network path
@@ -66,7 +65,7 @@ see the note in `gateway/server.js`.
 
 ## Caddy
 
-Copy `Caddyfile.example` to the Caddy configuration and change
+Copy `ops/Caddyfile.example` to the Caddy configuration and change
 `game.example.com` and `/srv/yugoslavian-war-web`.
 
 Only expose ports **80** and **443** publicly. The gateway and the Lua server

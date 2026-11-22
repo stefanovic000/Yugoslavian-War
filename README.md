@@ -223,11 +223,17 @@ src/scenes/                menu, solo, browser/lobby, netmatch, settings
 src/net/client.lua         non-blocking TCP/JSON client
 src/core/                  log, debug console/HUD, profiler, crash handler
 src/ui/ui.lua              pixel UI toolkit
+web/                       love.js browser target, WS gateway and Caddy config
 tests/                     unit tests, server integration, UI test hook
-tools/love/                portable LÃ–VE 11.5 runtime (gitignored)
+tools/love/                portable runtime (gitignored)
 tools/fetch-love.ps1       restores the runtime
-docs/                      screenshots and debugging guide
+docs/                      architecture, screenshots and debugging guide
 ```
+
+Desktop and browser share `shared/`, `src/` and the same server. The browser
+adds a WebSocket gateway because browsers cannot open raw TCP sockets.
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the runtime split.
 
 ## Third-party
 

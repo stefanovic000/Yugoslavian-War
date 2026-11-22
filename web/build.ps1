@@ -3,7 +3,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$out = Join-Path $PSScriptRoot "public"
+$out = Join-Path $root "build\web"
 $lovejs = "https://raw.githubusercontent.com/2dengine/love.js/main"
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
@@ -46,7 +46,7 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 print("wrote", out)
 '@ | & $py.Source - $root $love
 
-Copy-Item (Join-Path $PSScriptRoot "template.html") (Join-Path $out "index.html") -Force
+Copy-Item (Join-Path $PSScriptRoot "site\template.html") (Join-Path $out "index.html") -Force
 
 # Simple cache-buster marker so deployments do not reuse an old package.
 $stamp = [DateTime]::UtcNow.ToString("yyyyMMddHHmmss")
@@ -55,5 +55,5 @@ $idx = $idx.Replace("__BUILD__", $stamp)
 [System.IO.File]::WriteAllText((Join-Path $out "index.html"), $idx, (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host ""
-Write-Host "Built web/public"
+Write-Host "Built build/web"
 Write-Host "Serve it over HTTPS; love.js does not run from file://"
