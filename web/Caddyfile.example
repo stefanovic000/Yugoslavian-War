@@ -1,0 +1,29 @@
+# Replace game.example.com and the root path.
+# Public ports: 80/443 only. The gateway and Lua server stay on loopback.
+
+game.example.com {
+	root * /srv/yugoslavian-war-web
+	encode zstd gzip
+
+	# WebSocket gateway. Caddy handles the Upgrade automatically.
+	handle /ws* {
+		reverse_proxy 127.0.0.1:9001
+	}
+
+	# Static love.js player.
+	handle {
+		file_server
+	}
+
+	@wasm path *.wasm
+	header @wasm Content-Type application/wasm
+
+	# Required by current love.js builds.
+	header {
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://game.example.com; worker-src 'self' blob:"
+		Referrer-Policy "no-referrer"
+		X-Content-Type-Options "nosniff"
+	}
+}

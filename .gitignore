@@ -4,3 +4,8 @@ tools/love/
 # build artifacts
 build/
 *.love
+
+# web build output and gateway dependencies
+web/public/
+web/gateway/node_modules/
+web/gateway/package-lock.json
