@@ -3,7 +3,6 @@
 
 local C = require("shared.constants")
 local Vision = require("shared.vision")
-local WebQuality = require("src.game.webquality")
 
 local VisionOverlay = {}
 
@@ -11,7 +10,6 @@ local VisionOverlay = {}
 -- shadow edge a soft pixel-art falloff instead of a razor-thin raycast line.
 local W, H = 320, 180
 local mask
-local lastBuild = -1
 
 local function ensureMask()
   if not mask then
@@ -23,14 +21,6 @@ end
 function VisionOverlay.draw(viewer, camera, clouds)
   if not viewer or not camera then return end
   ensureMask()
-  local now = love.timer.getTime()
-  if WebQuality.isWeb and lastBuild >= 0
-    and now - lastBuild < WebQuality.visionInterval then
-    love.graphics.setColor(0.005, 0.010, 0.016, 0.09)
-    love.graphics.draw(mask, 0, 0, 0, 2, 2)
-    return
-  end
-  lastBuild = now
   local scale = C.WORLD.scale * 0.5
   local camX = math.floor(camera.x)
   local camY = math.floor(camera.y)

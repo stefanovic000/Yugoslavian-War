@@ -40,10 +40,6 @@ local Input = require("src.core.input")
 local App = require("src.app")
 local View = require("src.game.view")
 local Settings = require("src.game.settings")
-local IS_WEB = love.system.getOS() == "Web"
-local webUpdateAccum = 0
-local lastWebDraw = 0
-local WEB_DRAW_INTERVAL = 1 / 60
 
 function love.load()
   love.graphics.setDefaultFilter("nearest", "nearest", 1)
@@ -80,12 +76,6 @@ end
 function love.update(dt)
   if not App.ready then return end
   dt = math.min(dt, 0.1)
-  if IS_WEB then
-    webUpdateAccum = webUpdateAccum + dt
-    if webUpdateAccum < (1 / 60) then return end
-    dt = math.min(webUpdateAccum, 0.1)
-    webUpdateAccum = 0
-  end
 
   profiler.beginFrame()
   profiler.push("update")
@@ -100,11 +90,6 @@ end
 
 function love.draw()
   if App.ready then
-    if IS_WEB then
-      local now = love.timer.getTime()
-      if now - lastWebDraw < WEB_DRAW_INTERVAL then return end
-      lastWebDraw = now
-    end
     View.begin()
     App:draw()
     View.finish()
