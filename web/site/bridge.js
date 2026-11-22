@@ -64,6 +64,7 @@
 
     ws.onopen = function () {
       connecting = false;
+      originalLog("DF bridge open", url);
       setState("connected");
       for (let i = 0; i < queued.length; i++) ws.send(queued[i]);
       queued = [];
@@ -93,6 +94,7 @@
       const s = arguments[0];
       if (s.indexOf("DF_WS_INIT ") === 0) {
         saveDir = s.slice("DF_WS_INIT ".length).trim();
+        originalLog("DF bridge init", saveDir);
         writeFile("ws_in", "", false);
         setState("connecting");
         connect();
