@@ -88,6 +88,14 @@
     else queued.push(text);
   }
 
+  // Background tabs suspend requestAnimationFrame, so LÖVE stops pinging.
+  // Wake the server up immediately when the tab becomes visible again.
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "ping", t: Date.now() / 1000 }) + "\n");
+    }
+  });
+
   // LÖVE's print reaches the browser console. Intercept only our bridge lines.
   console.log = function () {
     if (arguments.length === 1 && typeof arguments[0] === "string") {

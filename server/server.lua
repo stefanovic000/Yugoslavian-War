@@ -24,7 +24,7 @@ local MAX_CLIENTS = 64
 local MAX_CLIENTS_PER_IP = 6
 local MAX_ROOMS = 16
 local MAX_SPECTATORS = 8
-local IDLE_TIMEOUT = 30
+local IDLE_TIMEOUT = 300
 local MSG_RATE = 140
 local MSG_BURST = 100
 

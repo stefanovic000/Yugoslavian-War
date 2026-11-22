@@ -15,7 +15,7 @@ const GATEWAY_HOST = process.env.GATEWAY_HOST || "127.0.0.1";
 const GATEWAY_PORT = Number(process.env.GATEWAY_PORT || 9001);
 const MAX_CLIENTS = Number(process.env.MAX_CLIENTS || 2048);
 const MAX_BUFFER = 256 * 1024;
-const IDLE_MS = 45_000;
+const IDLE_MS = 300_000;
 
 let active = 0;
 
@@ -99,6 +99,7 @@ wss.on("connection", (ws, req) => {
 
   ws.on("close", () => close("client closed"));
   ws.on("error", () => close("client error"));
+  ws.on("pong", () => { lastSeen = Date.now(); });
   tcp.on("close", () => close("game server closed"));
   tcp.on("error", (err) => {
     console.error("tcp error", err.message);

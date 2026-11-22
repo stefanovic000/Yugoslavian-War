@@ -14,7 +14,7 @@ Client.__index = Client
 local MAX_OUTBOX = 65536
 local MAX_BUFFER = 32768
 local CONNECT_TIMEOUT = 6
-local IDLE_TIMEOUT = 20
+local IDLE_TIMEOUT = IS_WEB and 300 or 20
 
 local function now()
   if IS_WEB then return love.timer.getTime() end
