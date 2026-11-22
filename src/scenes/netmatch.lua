@@ -13,6 +13,7 @@ local Sky = require("src.game.sky")
 local Sprites = require("src.game.sprites")
 local Ground = require("src.game.ground")
 local CloudShadows = require("src.game.cloudshadows")
+local WebQuality = require("src.game.webquality")
 local Walls = require("src.game.walls")
 local Camera = require("src.game.camera")
 local Vision = require("shared.vision")
@@ -88,7 +89,7 @@ function NetMatch:enter(client, startMsg)
   self.leavePrompt = false
   self.promptChoice = 2
   self.hover = nil
-  self.particles = Particles.new(700)
+  self.particles = Particles.new(WebQuality.particleMax)
   self.cloudFx = CloudFx.new()
   self.chatOpen = false
   self.chatText = ""
