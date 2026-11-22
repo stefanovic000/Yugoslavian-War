@@ -4,6 +4,8 @@
 
 [**Download the latest Windows build**](https://github.com/stefanovic000/Yugoslavian-War/releases/latest)
 
+[**Play in the browser**](https://yugowar.stef000.dev) · **Dedicated server:** `132.226.207.140:7777`
+
 ![Yugoslavian War main menu](docs/preview-menu.png)
 
 ## About
